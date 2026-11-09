@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Spartel — The future fishing media</title>
-<meta name="description" content="Spartel is the future fishing media: films, photos and field notes from where the Atlantic meets the Mediterranean. Founded in Barcelona, June 2026.">
+<title>Spartel — The future of fishing connectivity</title>
+<meta name="description" content="Spartel connects your boat, your Humminbird and your crew: GPS spots, GPX export and import, catches with lure and conditions, lure box, trips. Free, works offline at sea.">
 <meta property="og:title" content="Spartel — The future fishing media">
 <meta property="og:description" content="Offshore stories from where the Atlantic meets the Mediterranean. Founded in Barcelona, June 2026.">
 <meta property="og:image" content="assets/og.png">
@@ -182,55 +182,107 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;
 .hl{scroll-margin-top:80px}
 @media (max-width:760px){.top nav .lk{display:none}}
 </style>
-</head>
+<style>
+.hero h1{font-size:clamp(34px,5.4vw,62px)}
+.block h2.h,.block h3.h{line-height:1.05}
+.phones .d1{left:0;top:56px}.phones .d2{right:0}
+.pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:32px}
+.pillars>div{background:#fff;border:1px solid var(--line);border-radius:18px;padding:24px}
+.pillars b{display:block;font:800 17px/1.2 var(--h);font-stretch:125%;text-transform:uppercase;margin:14px 0 8px}
+.pillars p{margin:0;color:var(--muted);font-size:15px}
+.pic{width:48px;height:48px;border-radius:14px;background:var(--navy);color:var(--sun);display:inline-flex;align-items:center;justify-content:center}
+.exportband{background:var(--navy);color:var(--sand);border-top:none}
+.two-c{display:grid;grid-template-columns:1.1fr .9fr;gap:48px;align-items:center}
+.checks{list-style:none;padding:0;margin:24px 0 0;display:grid;gap:12px}
+.checks li{display:flex;gap:12px;align-items:center;font-size:16px}.checks svg{color:var(--sun);flex:none}
+.gpx{display:flex;flex-direction:column;gap:14px;align-items:stretch}
+.gpx .file{background:#fff;color:var(--navy);border-radius:16px;padding:20px;display:flex;align-items:center;gap:16px;font:600 15px var(--b)}
+.gpx .file.alt{background:var(--sand)}
+.gpx .ext{background:var(--sun);color:#fff;font:800 13px var(--h);font-stretch:125%;padding:10px 12px;border-radius:10px}
+.gpx .file.alt .ext{background:var(--navy)}
+.gpx .flow{display:flex;justify-content:space-between;align-items:center;font:800 14px var(--h);font-stretch:125%;text-transform:uppercase;padding:0 8px;color:var(--sand)}
+.gpx .arr{font-size:26px;color:var(--sun)}
+.fgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:32px}
+.fcard{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px}
+.fcard .fic{width:44px;height:44px;border-radius:12px;background:var(--sand);color:var(--navy);display:flex;align-items:center;justify-content:center}
+.fcard h3{font-size:16px;line-height:1.2;margin:14px 0 10px}
+.fcard ul{margin:0;padding-left:18px;color:#33475B;font-size:14px;display:grid;gap:7px}
+.fcard li::marker{color:var(--sun)}
+.screens-sec{overflow:hidden}
+.screens{display:flex;gap:22px;overflow-x:auto;padding:32px max(20px,calc((100vw - 935px)/2 + 20px)) 20px;scroll-snap-type:x mandatory;scrollbar-width:none}
+.screens::-webkit-scrollbar{display:none}
+.screens .dev{position:relative;flex:none;width:230px;scroll-snap-align:center;box-shadow:0 18px 40px rgba(11,31,51,.18)}
+.next{margin-top:28px;border:1.5px dashed var(--line);border-radius:16px;padding:18px 20px;color:var(--muted)}
+.next p:last-child{margin:0}
+.media-teaser{background:var(--sand)}
+@media (max-width:900px){.fgrid{grid-template-columns:1fr 1fr}.pillars,.two-c{grid-template-columns:1fr}}
+@media (max-width:560px){.fgrid{grid-template-columns:1fr}.screens .dev{width:200px}}
+</style></head>
 <body>
-<header class="top"><div class="wrap"><a href="" aria-label="Spartel"><img src="assets/wordmark.svg" alt="Spartel"></a><nav style="display:flex;gap:8px;align-items:center"><a class="btn g lk cur" href="" aria-current="page">Posts</a><a class="btn g lk" href="the-app/">The app</a><a class="btn g lk" href="sessions/">Sessions</a><a class="btn g lk" href="about/">About</a><a class="btn d" href="app/">Log in</a></nav></div></header>
-<main id="top"><div class="wrap" id="media">
- <section class="profile" aria-label="Profil Spartel">
-  <div class="avatar"><img src="assets/badge.svg" alt="Badge Spartel Crew"></div>
-  <div class="head">
-   <div class="prow"><h1>spartel</h1><a class="btn p" href="app/#/signup">Join the crew</a><a class="btn g" href="app/">Log in</a></div>
-   <ul class="stats"><li><b>2</b> seas</li><li><b>1</b> lighthouse</li><li><b>0</b> spots shared</li></ul>
-  </div>
-  <div class="bio">
-   <p class="name">SPARTEL · The future fishing media</p>
-   <p class="cat">Media · Offshore fishing</p>
-   <p>Films, photos and field notes from where the Atlantic meets the Mediterranean.</p>
-   <p>Share stories, not coordinates.</p>
-   <p class="loc">Founded in Barcelona · June 2026 · 35°47'N 5°55'W</p>
-  </div>
- </section>
- <div class="hls" role="list"><button class="hl" data-h="0"><span class="ring"><span class="in navy"><svg viewBox="-100 -610 200 620" height="34" aria-hidden="true"><path fill-rule="evenodd" d="M-70 0 L-52 -330 L52 -330 L70 0 Z M-88 -330 H88 V-372 H-88 Z M-50 -372 H50 V-470 H-50 Z M-62 -470 Q0 -560 62 -470 Z M-6 -550 H6 V-600 H-6 Z M-30 -385 H30 V-457 H-30 Z" fill="#F1ECE2"/></svg></span></span><span class="lbl">Spots</span></button><button class="hl" data-h="1"><span class="ring"><span class="in sand"><svg viewBox="-360 -200 720 400" width="46" aria-hidden="true"><g transform="rotate(-10)"><path d="M-330 0 C-250 -70 -80 -105 60 -95 C150 -88 230 -55 270 -22 L330 -95 L310 0 L330 95 L270 22 C230 55 150 88 60 95 C-80 105 -250 70 -330 0 Z M-20 -95 L60 -175 L90 -92 Z M-10 95 L60 165 L80 92 Z" fill="#0B1F33"/></g></svg></span></span><span class="lbl">Tuna</span></button><button class="hl" data-h="2"><span class="ring"><span class="in white"><span style="width:30px;height:30px;color:#0B1F33"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12c3-5 9-6 14-3-2 5-8 7-14 3z"/><circle cx="15" cy="10" r="1"/><path d="M5 12l-2 3M19 9l2-1"/><path d="M8 15v3a2 2 0 0 0 3 1"/></svg></span></span></span><span class="lbl">Jigging</span></button><button class="hl" data-h="3"><span class="ring"><span class="in sun"><svg viewBox="-100 -610 200 620" height="34" aria-hidden="true"><path fill-rule="evenodd" d="M-70 0 L-52 -330 L52 -330 L70 0 Z M-88 -330 H88 V-372 H-88 Z M-50 -372 H50 V-470 H-50 Z M-62 -470 Q0 -560 62 -470 Z M-6 -550 H6 V-600 H-6 Z M-30 -385 H30 V-457 H-30 Z" fill="#0B1F33"/></svg></span></span><span class="lbl">Sessions</span></button><button class="hl" data-h="4"><span class="ring"><span class="in sand"><img src="assets/symbol.svg" alt="" style="width:40px"></span></span><span class="lbl">Crew</span></button><button class="hl" data-h="5"><span class="ring"><span class="in navy"><span class="mini">APP</span></span></span><span class="lbl">App</span></button></div>
-</div>
-<nav class="tabs" aria-label="Sections"><a class="on" href="#posts" aria-current="page">Posts</a><a href="sessions/">Sessions</a><a href="about/">About</a><a href="the-app/">App</a></nav>
-<div class="wrap gridwrap" id="posts"><div class="grid"><button class="post navy" data-i="0" aria-label="Voir la publication 1"><div class="tile"><img src="assets/wordmark-white.svg" alt="" class="wm"><p class="t-xl">THE FUTURE<br>FISHING MEDIA</p></div></button><button class="post sand" data-i="1" aria-label="Voir la publication 2"><div class="tile"><div class="art" style="width:92%;height:92%"><svg viewBox="-117.0 -112.5 234.0 216.0" aria-hidden="true"><defs><clipPath id="cp2"><circle r="90"/></clipPath></defs><g clip-path="url(#cp2)"><circle r="90" fill="#E2703A"/><rect x="-90" y="5.3" width="180" height="2.1" fill="#F1ECE2"/><rect x="-90" y="18.4" width="180" height="3.5" fill="#F1ECE2"/><rect x="-90" y="30.3" width="180" height="4.9" fill="#F1ECE2"/><rect x="-90" y="40.9" width="180" height="6.2" fill="#F1ECE2"/><rect x="-90" y="50.2" width="180" height="7.6" fill="#F1ECE2"/><rect x="-90" y="58.2" width="180" height="9.0" fill="#F1ECE2"/><rect x="-90" y="65.0" width="180" height="10.4" fill="#F1ECE2"/></g><rect x="-117.0" y="88.94117647058823" width="234.0" height="2.6" fill="#0B1F33"/><g transform="translate(4.2 -7.4) rotate(-26) scale(0.265)"><path d="M-330 0 C-250 -70 -80 -105 60 -95 C150 -88 230 -55 270 -22 L330 -95 L310 0 L330 95 L270 22 C230 55 150 88 60 95 C-80 105 -250 70 -330 0 Z M-20 -95 L60 -175 L90 -92 Z M-10 95 L60 165 L80 92 Z" fill="#0B1F33" stroke="#F1ECE2" stroke-width="18" paint-order="stroke"/></g></svg></div></div></button><button class="post sun" data-i="2" aria-label="Voir la publication 3"><div class="tile"><p class="t-lg">SHARE STORIES,<br>NOT COORDINATES.</p></div></button><button class="post navy" data-i="3" aria-label="Voir la publication 4"><div class="tile"><div class="art"><svg viewBox="-100 -610 200 620" aria-hidden="true"><path fill-rule="evenodd" d="M-70 0 L-52 -330 L52 -330 L70 0 Z M-88 -330 H88 V-372 H-88 Z M-50 -372 H50 V-470 H-50 Z M-62 -470 Q0 -560 62 -470 Z M-6 -550 H6 V-600 H-6 Z M-30 -385 H30 V-457 H-30 Z" fill="#F1ECE2"/></svg></div><p class="t-sm">35°47'N · 5°55'W</p></div></button><button class="post white" data-i="4" aria-label="Voir la publication 5"><div class="tile"><p class="kick">SPECIES FILE 01</p><div class="art"><svg viewBox="-360 -200 720 400" aria-hidden="true"><g transform="rotate(-8)"><path d="M-330 0 C-250 -70 -80 -105 60 -95 C150 -88 230 -55 270 -22 L330 -95 L310 0 L330 95 L270 22 C230 55 150 88 60 95 C-80 105 -250 70 -330 0 Z M-20 -95 L60 -175 L90 -92 Z M-10 95 L60 165 L80 92 Z" fill="#0B1F33"/></g></svg></div><p class="t-md">BLUEFIN TUNA</p><p class="t-xs">Thunnus thynnus</p></div></button><button class="post sand" data-i="5" aria-label="Voir la publication 6"><div class="tile"><p class="kick">FOUNDED IN</p><p class="t-xl">BARCELONA</p><p class="t-sm">JUNE 2026</p></div></button><button class="post navy" data-i="6" aria-label="Voir la publication 7"><div class="tile"><p class="kick">SPARTEL SESSIONS</p><p class="t-lg">SEASON 01</p><div class="art"><svg viewBox="-100 -610 200 620" aria-hidden="true"><path fill-rule="evenodd" d="M-70 0 L-52 -330 L52 -330 L70 0 Z M-88 -330 H88 V-372 H-88 Z M-50 -372 H50 V-470 H-50 Z M-62 -470 Q0 -560 62 -470 Z M-6 -550 H6 V-600 H-6 Z M-30 -385 H30 V-457 H-30 Z" fill="#E2703A"/></svg></div><p class="t-xs">Filmed on every trip</p></div></button><button class="post white" data-i="7" aria-label="Voir la publication 8"><div class="tile"><p class="kick">LURE OF THE MONTH</p><div class="art lure"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12c3-5 9-6 14-3-2 5-8 7-14 3z"/><circle cx="15" cy="10" r="1"/><path d="M5 12l-2 3M19 9l2-1"/><path d="M8 15v3a2 2 0 0 0 3 1"/></svg></div><p class="t-md">SLOW JIG 80 G</p><p class="t-xs">Drop. Flutter. Wait.</p></div></button><button class="post sun" data-i="8" aria-label="Voir la publication 9"><div class="tile"><p class="t-xl">TWO SEAS.<br>ONE CREW.</p></div></button><button class="post sand" data-i="9" aria-label="Voir la publication 10"><div class="tile"><div class="art" style="width:78%;height:78%"><img src="assets/badge.svg" alt="" class="badge"></div></div></button><button class="post navy" data-i="10" aria-label="Voir la publication 11"><div class="tile"><p class="kick">FIELD NOTE</p><p class="t-lg">NEW MOON.<br>BIG TIDES.<br>GO.</p></div></button><button class="post white" data-i="11" aria-label="Voir la publication 12"><div class="tile"><div class="phone"><div class="scr"><img src="assets/symbol.svg" alt=""><p>SPARTEL</p><span></span><span></span><span class="s"></span></div></div><p class="t-xs">The crew app is live</p></div></button></div></div>
+<header class="top"><div class="wrap"><a href="" aria-label="Spartel"><img src="assets/wordmark.svg" alt="Spartel"></a><nav style="display:flex;gap:8px;align-items:center"><a class="btn g lk cur" href="" aria-current="page">App</a><a class="btn g lk" href="posts/">Posts</a><a class="btn g lk" href="sessions/">Sessions</a><a class="btn g lk" href="about/">About</a><a class="btn d" href="app/">Log in</a></nav></div></header>
+<main id="top"><section class="hero"><div class="wrap">
+ <div>
+  <p class="kicker" style="color:var(--sun)">Spartel · the crew app</p>
+  <h1>The future of<br><em>fishing connectivity.</em></h1>
+  <p class="sub">Your boat, your sounder and your crew, finally connected. Spartel turns every trip into data you keep: spots, catches, lures and conditions, logged in seconds and shared only with the people you fish with.</p>
+  <div class="cta"><a class="btn p" href="app/#/signup">Join the crew, it’s free</a><a class="btn g" href="app/">Log in</a></div>
+  <p class="note">iPhone &amp; Android · No App Store needed · Works offline at sea · Humminbird GPX import &amp; export</p>
+ </div>
+ <div class="phones" aria-hidden="true"><div class="dev d1"><img src="assets/screens/map.webp" alt="" width="390" height="844"></div><div class="dev d2"><img src="assets/screens/catch.webp" alt="" width="390" height="844"></div></div>
+</div></section>
 
+<section class="block" style="border-top:none"><div class="wrap">
+ <p class="kicker">Why Spartel</p>
+ <h2 class="h" style="font-size:clamp(28px,5vw,48px)">Fishing has always been<br>a disconnected sport.</h2>
+ <p class="lead" style="max-width:720px">Waypoints stuck in a sounder. Catches lost in camera rolls. Conditions forgotten by Monday. The crew’s best spots scattered across WhatsApp messages. Spartel connects all of it, in one app made by anglers.</p>
+ <div class="pillars">
+  <div><span class="pic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h8l4 4v14H7z"/><path d="M10 3v4M13 3v4"/></svg></span><b>Connected to your boat</b><p>Import and export waypoints and tracks with your Humminbird. Your sounder and your phone finally speak the same language.</p></div>
+  <div><span class="pic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.5 3-6 6-6s6 2.5 6 6M15 14.5c3 0 6 2 6 5.5"/></svg></span><b>Connected to your crew</b><p>Shared spots, shared catches, one leaderboard. Everyone on the boat logs into the same story.</p></div>
+  <div><span class="pic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12c2.5-3 5-3 7.5 0s5 3 7.5 0 4-2 5-1M2 17c2.5-3 5-3 7.5 0s5 3 7.5 0 4-2 5-1"/></svg></span><b>Connected to the sea</b><p>Wind, swell, water temperature and moon are saved with every fish, so patterns stop being a guess.</p></div>
+ </div>
+</div></section>
+
+<section class="block exportband"><div class="wrap two-c">
+ <div>
+  <p class="kicker" style="color:var(--sun)">Your points, your format</p>
+  <h2 class="h" style="font-size:clamp(28px,4.6vw,46px)">Export your spots.<br>Anywhere.</h2>
+  <p class="lead" style="color:#C9D3DC">Your waypoints belong to you, not to a sounder brand. Import them from the Humminbird Solix, organise them in Spartel, and export them back as standard GPX files whenever you need.</p>
+  <ul class="checks">
+   <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 13v7h14v-7"/></svg> Import every waypoint from the Solix in one file</li>
+   <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v7h14v-7"/></svg> Export one spot or your whole collection as GPX</li>
+   <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h8l4 4v14H7z"/><path d="M10 3v4M13 3v4"/></svg> Load them on the Solix, a chartplotter or any GPS</li>
+   <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l2 3h14l2-3z"/><path d="M12 3v14M12 5l6 9h-6"/></svg> Export trip tracks to keep or share</li>
+  </ul>
+ </div>
+ <div class="gpx" aria-hidden="true"><div class="file"><span class="ext">.GPX</span><span>spartel-spots.gpx</span></div><div class="flow"><span>Spartel</span><span class="arr">⇄</span><span>Humminbird Solix</span></div><div class="file alt"><span class="ext">SD</span><span>My Data → Export All</span></div></div>
+</div></section>
+
+<section class="block" id="features"><div class="wrap">
+ <p class="kicker">Every feature</p>
+ <h2 class="h" style="font-size:clamp(28px,5vw,48px)">Everything your boat needs.<br>Nothing it doesn’t.</h2>
+ <div class="fgrid"><article class="fcard"><div class="fic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg></div><h3 class="h">Spots & map</h3><ul><li>Save every spot with its GPS position, depth, bottom type, notes and sonar screenshot</li><li>Coordinates in DDM, DMS or decimal, switch in one tap</li><li>Paste coordinates in any format, use your phone GPS, or drop a pin on the chart</li><li>Nautical chart with buoys, lights and seamarks, plus a depth layer</li><li>Search by name or by coordinates, filter by yours, the crew’s or bottom type</li><li>Each spot shows its catches, top species, best lure and best time of day</li></ul></article><article class="fcard"><div class="fic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v7h14v-7"/></svg></div><h3 class="h">Export & import your points</h3><ul><li>Import every waypoint from your Humminbird Solix in one file (GPX)</li><li>Tracks from the sounder become trips, with distance, duration and top speed</li><li>Export one spot, or all your spots, as a GPX file</li><li>Load the file on the Solix, or on any GPS or chartplotter that reads GPX</li><li>Export a trip’s track to keep it or share it</li><li>Copy or share a spot’s coordinates with a friend in one tap</li></ul></article><article class="fcard"><div class="fic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12c3-4 8-6 13-3l5-3v12l-5-3c-5 3-10 1-13-3z"/><circle cx="14" cy="11" r="1"/></svg></div><h3 class="h">Catches</h3><ul><li>Photo and video of every fish</li><li>Who caught it: tap anyone in the crew, one phone logs for the whole boat</li><li>Species list for the Atlantic and the Mediterranean</li><li>Weight, length, depth, technique, released or kept</li><li>Position from your GPS, a saved spot, the photo itself, or typed in</li><li>The nearest spot is recognised automatically</li></ul></article><article class="fcard"><div class="fic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12c2.5-3 5-3 7.5 0s5 3 7.5 0 4-2 5-1M2 17c2.5-3 5-3 7.5 0s5 3 7.5 0 4-2 5-1"/></svg></div><h3 class="h">Conditions, logged for you</h3><ul><li>Wind speed, direction and gusts at the moment of the catch</li><li>Swell height and period, water temperature</li><li>Air pressure, air temperature and cloud cover</li><li>Moon phase and illumination</li><li>Live conditions at Cap Spartel on the home screen</li></ul></article><article class="fcard"><div class="fic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12c3-5 9-6 14-3-2 5-8 7-14 3z"/><circle cx="15" cy="10" r="1"/><path d="M5 12l-2 3M19 9l2-1"/><path d="M8 15v3a2 2 0 0 0 3 1"/></svg></div><h3 class="h">Lure box</h3><ul><li>Photograph every lure once: name, brand, type, weight, colour</li><li>Pick it from your box when you log a catch, or snap a new one on the spot</li><li>Each lure ranked by catches and species</li><li>See which lures the whole crew is catching with</li></ul></article><article class="fcard"><div class="fic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l2 3h14l2-3z"/><path d="M12 3v14M12 5l6 9h-6"/></svg></div><h3 class="h">Trips</h3><ul><li>Plan the next trip: date, boat, who’s on board</li><li>Attach the Solix track after the trip</li><li>Distance, duration and top speed computed from the track</li><li>Every catch of the trip on the map and in a timeline</li></ul></article><article class="fcard"><div class="fic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.5 3-6 6-6s6 2.5 6 6M15 14.5c3 0 6 2 6 5.5"/></svg></div><h3 class="h">Crew</h3><ul><li>Create a crew and invite friends with a link or a code</li><li>Spots and catches shared with the crew only when you decide</li><li>Leaderboard: catches and biggest fish per angler</li><li>Biggest fish of the month on the home screen</li><li>Several crews if you fish on different boats</li></ul></article><article class="fcard"><div class="fic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><h3 class="h">Offline & private</h3><ul><li>Works without network at sea: catches wait on the phone and upload back at the port</li><li>The chart areas you already viewed stay available offline</li><li>Private by default: nothing is ever public</li><li>The hidden GPS position inside photos is removed before upload</li><li>Installs from a link on iPhone and Android, no App Store, free</li></ul></article></div>
+</div></section>
+
+<section class="block screens-sec"><div class="wrap">
+ <p class="kicker">Inside the app</p>
+ <h2 class="h" style="font-size:clamp(28px,5vw,48px)">Built on the boat, for the boat.</h2>
+</div><div class="screens"><div class="dev "><img src="assets/screens/map.webp" alt="" width="390" height="844"></div><div class="dev "><img src="assets/screens/catch.webp" alt="" width="390" height="844"></div><div class="dev "><img src="assets/screens/lures.webp" alt="" width="390" height="844"></div><div class="dev "><img src="assets/screens/trip.webp" alt="" width="390" height="844"></div><div class="dev "><img src="assets/screens/crew.webp" alt="" width="390" height="844"></div></div></section>
+
+<section class="block"><div class="wrap">
+ <p class="kicker">Get started in one minute</p>
+ <div class="steps">
+  <div><b>Open the invite link</b><p>Your crew sends you a link. Open it in Safari or Chrome.</p></div>
+  <div><b>Create your account</b><p>First name, email, password. You join the crew automatically.</p></div>
+  <div><b>Add it to your home screen</b><p>Share, then Add to Home Screen. Spartel opens like any app.</p></div>
+ </div>
+ <div class="next"><p class="kicker" style="margin:0 0 10px">Coming next</p><p>Live track recording from the phone · Trip replay · Notifications for the crew · Species recognition from photos · Badges and seasons</p></div>
+</div></section>
+
+<section class="block media-teaser"><div class="wrap">
+ <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap"><div><p class="kicker">Also from Spartel</p><h2 class="h" style="font-size:clamp(26px,4.4vw,40px)">The future fishing media.</h2></div><a class="btn g" href="posts/">See the posts</a></div>
+ <p class="lead" style="max-width:640px">Films, photos and field notes from the crew, fishing where the Atlantic meets the Mediterranean. Founded in Barcelona, June 2026.</p>
+</div></section>
 <section class="block"><div class="wrap" style="text-align:center"><img src="assets/symbol.svg" alt="" width="84" height="84" style="margin:0 auto 14px;display:block"><h2 class="h" style="font-size:clamp(26px,4.6vw,42px)">Ready for the next trip?</h2><p class="lead" style="max-width:520px;margin:12px auto 24px">Join the crew, log your first catch, and keep your spots where they belong.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><a class="btn p" href="app/#/signup">Join the crew</a><a class="btn d" href="app/">Log in</a></div></div></section>
 </main><footer><div class="wrap"><img src="assets/wordmark.svg" alt="Spartel" style="height:26px"><span>© 2026 Spartel · Barcelona · Atlantic · Mediterranean</span><a href="app/">Log in</a></div></footer>
 
-<div class="modal" id="m" role="dialog" aria-modal="true" aria-label="Publication"><button class="x" id="mx" aria-label="Fermer">×</button><div id="mc"></div></div>
-<script>
-const D={"posts": [{"cap": "Spartel is a fishing media made by anglers, for anglers. Films, photos and field notes from where the Atlantic meets the Mediterranean.", "tag": "#thefuturefishingmedia"}, {"cap": "Sunrise, slack tide, a tuna breaking the surface. That is the whole brief.", "tag": "#offshore #bluefin"}, {"cap": "Rule number one of the crew. We will show you everything: the fish, the gear, the sunrise. Never the waypoint.", "tag": "#crewrules"}, {"cap": "Cap Spartel, near Tangier. The lighthouse that gave us our name, standing where two seas meet.", "tag": "#capspartel #tanger"}, {"cap": "Species file 01: the bluefin. Every year it crosses the strait, and every year we try to be there.", "tag": "#speciesfile #bluefintuna"}, {"cap": "Founded in Barcelona in June 2026, by a crew of friends who spend their weekends on the water between Spain and Morocco.", "tag": "#barcelona #since2026"}, {"cap": "Spartel Sessions, Season 01. One boat, one crew, every trip on camera. Raw, long, honest fishing films.", "tag": "#spartelsessions"}, {"cap": "Lure of the month: the 80 g slow jig. Dropped on the rocks at dawn, it does most of the work for you.", "tag": "#slowjig #lureofthemonth"}, {"cap": "Atlantic on one side, Mediterranean on the other. Same crew, same boat, two completely different fisheries.", "tag": "#atlantic #mediterranean"}, {"cap": "The crew badge. Earned on the water, worn on the cap.", "tag": "#spartelcrew"}, {"cap": "Field note: when the moon goes dark and the tides get big, the fish wake up. We log every catch with wind, swell and moon to prove it.", "tag": "#fieldnotes"}, {"cap": "Our own app: every spot, every catch, every lure, logged with the conditions of the moment. Private by default, shared with the crew when you decide.", "tag": "#spartelapp"}], "hl": [{"n": "Spots", "t": "Every spot we fish is logged in the Spartel app: depth, bottom, best lure, best moment. Private by default. Shared with the crew only."}, {"n": "Tuna", "t": "Bluefin season is the heartbeat of the strait. We follow it from the first boils in spring to the last runs of autumn."}, {"n": "Jigging", "t": "Slow jig, speed jig, madai: the crew's favourite way to fish the rocks of the strait."}, {"n": "Sessions", "t": "Spartel Sessions: long-form fishing films shot on every trip. Season 01 is being filmed now."}, {"n": "Crew", "t": "A crew of friends between Barcelona and Tangier. Different jobs, same boat, same obsession."}, {"n": "App", "t": "The Spartel app is live for the crew: spots, catches, lures, trips and Solix tracks in one place. See the App page."}]};
-const m=document.getElementById('m'),mc=document.getElementById('mc');
-let timer;
-function close(){m.classList.remove('open');mc.innerHTML='';clearTimeout(timer);}
-document.getElementById('mx').onclick=close;
-m.onclick=e=>{if(e.target===m)close();};
-addEventListener('keydown',e=>{if(e.key==='Escape')close();});
-document.querySelectorAll('.post[data-i]').forEach(b=>b.onclick=()=>{
- const i=+b.dataset.i,p=D.posts[i];
- mc.innerHTML=`<div class="mbox"><div class="media">${b.outerHTML}</div><div class="side"><div class="who"><img src="assets/symbol.svg" alt="">spartel</div><div class="cap"><p><b>spartel</b> ${p.cap}</p><p class="tag">${p.tag}</p></div><div class="act"><span style="font-size:13px;color:#4A5A6A">Founded in Barcelona · June 2026</span><a class="btn p" href="app/#/signup">Join</a></div></div></div>`;
- m.classList.add('open');
-});
-document.querySelectorAll('.hl').forEach(b=>b.onclick=()=>{
- const h=D.hl[+b.dataset.h];
- const inn=b.querySelector('.in'),ic=inn.innerHTML,cl=[...inn.classList].find(c=>c!=='in');
- mc.innerHTML=`<div class="story ${cl}"><div class="bar"><i></i></div><div class="art2">${ic}</div><p class="h" style="font-size:24px">${h.n}</p><p>${h.t}</p></div>`;
- m.classList.add('open');
- requestAnimationFrame(()=>mc.firstChild.classList.add('play'));
- timer=setTimeout(close,6200);
-});
-
-</script>
-</body>
-</html>
+</body></html>
