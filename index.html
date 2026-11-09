@@ -136,14 +136,80 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;
  .mbox{grid-template-columns:1fr;max-height:92vh;overflow:auto}
  header.top .btn.g{display:none}
 }
+.hero{background:var(--navy);color:var(--sand);overflow:hidden}
+.hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center;padding-top:64px;padding-bottom:0}
+.hero h1{font:800 clamp(34px,5.6vw,60px)/1.02 var(--h);font-stretch:125%;text-transform:uppercase;margin:12px 0 18px}
+.hero h1 em{font-style:normal;color:var(--sun)}
+.hero .sub{font-size:18px;color:#C9D3DC;max-width:520px;margin:0 0 28px}
+.hero .cta{display:flex;gap:10px;flex-wrap:wrap}
+.hero .btn.g{background:#1C3550;color:var(--sand)}
+.hero .note{font-size:13px;color:#9FB0C0;margin:16px 0 64px}
+.phones{position:relative;height:560px}
+.dev{position:absolute;width:250px;border-radius:38px;background:#050F1A;padding:10px;box-shadow:0 30px 60px rgba(0,0,0,.35)}
+.dev img{width:100%;height:auto;border-radius:29px;display:block;aspect-ratio:390/844}
+.phones .d1{left:4%;top:40px;transform:rotate(-6deg)}.phones .d2{right:2%;top:0;z-index:2;transform:rotate(4deg)}
+.feat{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;padding:56px 0;border-bottom:1px solid var(--line)}
+.feat:last-of-type{border-bottom:none}
+.feat.rev .ftext{order:2}
+.feat .dev{position:relative;margin:0 auto;width:260px}
+.feat h3{font:800 clamp(24px,3.6vw,34px)/1.08 var(--h);font-stretch:125%;text-transform:uppercase;margin:8px 0 14px}
+.feat p{color:var(--muted);font-size:16px;margin:0 0 12px}
+.feat ul{padding-left:18px;margin:0;color:var(--navy)}.feat li{margin:6px 0}
+.minis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:20px}
+.minis div{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px}
+.minis b{display:block;font:800 14px/1.2 var(--h);font-stretch:125%;text-transform:uppercase;margin-bottom:6px}
+.minis p{margin:0;color:var(--muted);font-size:14px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:24px;counter-reset:st}
+.steps div{background:var(--sand);border-radius:16px;padding:20px;counter-increment:st}
+.steps div::before{content:counter(st);display:inline-flex;width:34px;height:34px;border-radius:50%;background:var(--sun);color:#fff;font:800 15px var(--b);align-items:center;justify-content:center;margin-bottom:12px}
+.steps b{display:block;margin-bottom:4px}.steps p{margin:0;color:var(--muted);font-size:14px}
+.media-intro{padding-top:56px}
+@media (max-width:760px){
+ .hero .wrap{grid-template-columns:1fr;padding-top:36px}
+ .phones{height:420px}.dev{width:190px;border-radius:30px;padding:8px}.dev img{border-radius:23px}
+ .phones .d1{left:2%;top:30px}.phones .d2{right:2%}
+ .hero .note{margin-bottom:28px}
+ .feat{grid-template-columns:1fr;gap:28px;padding:40px 0}.feat.rev .ftext{order:0}
+ .feat .dev{width:230px}
+ .minis,.steps{grid-template-columns:1fr}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}html{scroll-behavior:auto}}
 </style>
 </head>
 <body>
 <header class="top"><div class="wrap"><a href="#top" aria-label="Spartel"><img src="assets/wordmark.svg" alt="Spartel"></a>
-<nav style="display:flex;gap:8px"><a class="btn g" href="#about">About</a><a class="btn d" href="app/">Log in</a></nav></div></header>
+<nav style="display:flex;gap:8px"><a class="btn g" href="#the-app">The app</a><a class="btn g" href="#about">About</a><a class="btn d" href="app/">Log in</a></nav></div></header>
 <main id="top">
-<div class="wrap">
+<section class="hero"><div class="wrap">
+ <div>
+  <p class="kicker" style="color:var(--sun)">The future fishing media</p>
+  <h1>Every spot.<br>Every catch.<br><em>Kept in the crew.</em></h1>
+  <p class="sub">Spartel is the app and the media of a crew of anglers fishing where the Atlantic meets the Mediterranean. Log your spots, your catches and your lures, share them with your crew, and keep the secret spots secret.</p>
+  <div class="cta"><a class="btn p" href="app/#/signup">Join the crew</a><a class="btn g" href="app/">Log in</a></div>
+  <p class="note">Free · iPhone &amp; Android · No App Store needed · Founded in Barcelona, June 2026</p>
+ </div>
+ <div class="phones" aria-hidden="true"><div class="dev d1"><img src="assets/screens/map.webp" alt="" width="390" height="844"></div><div class="dev d2"><img src="assets/screens/crew.webp" alt="" width="390" height="844"></div></div>
+</div></section>
+<section class="block" id="the-app" style="border-top:none"><div class="wrap">
+ <p class="kicker">The app</p>
+ <h2 class="h" style="font-size:clamp(28px,5vw,48px)">Built on the boat,<br>for the boat.</h2>
+ <div class="feat "><div class="ftext"><p class="kicker">Your spots</p><h3>Your sea, mapped.</h3><p>Every spot you fish, on a nautical chart with lighthouses, buoys and depth lines. Paste coordinates straight from the sounder, or drop a pin where you are.</p><ul><li>Private by default, shared with the crew in one tap</li><li>Coordinates in DDM, DMS or decimal</li><li>Depth, bottom type, notes and sonar screenshot</li></ul></div><div class="dev "><img src="assets/screens/map.webp" alt="Your spots" width="390" height="844"></div></div><div class="feat rev"><div class="ftext"><p class="kicker">Log a catch</p><h3>Twenty seconds, gloves on.</h3><p>Snap the fish, tap who caught it, pick the lure. Position, wind, swell, water temperature and moon phase are added automatically.</p><ul><li>Photo and video of every catch</li><li>Works offline at sea, syncs back at the port</li><li>GPS hidden in photos is removed before upload</li></ul></div><div class="dev "><img src="assets/screens/catch.webp" alt="Log a catch" width="390" height="844"></div></div><div class="feat "><div class="ftext"><p class="kicker">Your lure box</p><h3>Know what really catches.</h3><p>Photograph every lure once. Spartel ranks them by catches, species and spot, for you and for the whole crew.</p><ul><li>Jigs, madai, stickbaits, poppers, swimbaits</li><li>Lure of the month for the crew</li><li>Best lure shown on every spot</li></ul></div><div class="dev "><img src="assets/screens/lures.webp" alt="Your lure box" width="390" height="844"></div></div><div class="feat rev"><div class="ftext"><p class="kicker">Trips & Humminbird</p><h3>From the sounder to the story.</h3><p>Export your waypoints and tracks from the boat's Humminbird Solix, import them in Spartel, and every trip becomes a timeline: route, distance, speed and every fish on the map.</p><ul><li>GPX import and export with the Solix</li><li>Crew on board, duration, distance, top speed</li><li>Replay any trip, catch by catch</li></ul></div><div class="dev "><img src="assets/screens/trip.webp" alt="Trips & Humminbird" width="390" height="844"></div></div><div class="feat "><div class="ftext"><p class="kicker">The crew</p><h3>One crew. One leaderboard.</h3><p>Invite your friends with a link. See who is on the boat, who caught the biggest this month, and which spots the crew shares.</p><ul><li>Invite link and crew code</li><li>Monthly leaderboard and records</li><li>Several crews if you fish with different boats</li></ul></div><div class="dev "><img src="assets/screens/crew.webp" alt="The crew" width="390" height="844"></div></div>
+ <div class="minis">
+  <div><b>Offline at sea</b><p>The app opens without network. Catches wait on your phone and upload when you are back in range.</p></div>
+  <div><b>Private by default</b><p>Nothing leaves your account until you share it with the crew. Nothing is ever public.</p></div>
+  <div><b>Conditions logged</b><p>Wind, gusts, swell, water temperature, pressure and moon saved with every fish.</p></div>
+ </div>
+ <p class="kicker" style="margin-top:56px">Get it in one minute</p>
+ <div class="steps">
+  <div><b>Open the invite link</b><p>Your crew sends you a link. Open it in Safari or Chrome.</p></div>
+  <div><b>Create your account</b><p>First name, email, password. You join the crew automatically.</p></div>
+  <div><b>Add it to your home screen</b><p>Share, then Add to Home Screen. Spartel opens like any app.</p></div>
+ </div>
+ <div class="cta" style="display:flex;gap:10px;margin-top:28px;flex-wrap:wrap"><a class="btn p" href="app/#/signup">Join the crew</a><a class="btn d" href="app/">Log in</a></div>
+</div></section>
+<div class="wrap media-intro" id="media" style="border-top:1px solid var(--line)">
+ <p class="kicker" style="margin:0">The media</p>
+ <h2 class="h" style="font-size:clamp(28px,5vw,48px);margin-bottom:8px">Follow the crew.</h2>
  <section class="profile" aria-label="Profil Spartel">
   <div class="avatar"><img src="assets/badge.svg" alt="Badge Spartel Crew"></div>
   <div class="head">
@@ -160,7 +226,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;
  </section>
  <div class="hls" role="list"><button class="hl" data-h="0"><span class="ring"><span class="in navy"><svg viewBox="-100 -610 200 620" height="34" aria-hidden="true"><path fill-rule="evenodd" d="M-70 0 L-52 -330 L52 -330 L70 0 Z M-88 -330 H88 V-372 H-88 Z M-50 -372 H50 V-470 H-50 Z M-62 -470 Q0 -560 62 -470 Z M-6 -550 H6 V-600 H-6 Z M-30 -385 H30 V-457 H-30 Z" fill="#F1ECE2"/></svg></span></span><span class="lbl">Spots</span></button><button class="hl" data-h="1"><span class="ring"><span class="in sand"><svg viewBox="-360 -200 720 400" width="46" aria-hidden="true"><g transform="rotate(-10)"><path d="M-330 0 C-250 -70 -80 -105 60 -95 C150 -88 230 -55 270 -22 L330 -95 L310 0 L330 95 L270 22 C230 55 150 88 60 95 C-80 105 -250 70 -330 0 Z M-20 -95 L60 -175 L90 -92 Z M-10 95 L60 165 L80 92 Z" fill="#0B1F33"/></g></svg></span></span><span class="lbl">Tuna</span></button><button class="hl" data-h="2"><span class="ring"><span class="in white"><span style="width:30px;height:30px;color:#0B1F33"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12c3-5 9-6 14-3-2 5-8 7-14 3z"/><circle cx="15" cy="10" r="1"/><path d="M5 12l-2 3M19 9l2-1"/><path d="M8 15v3a2 2 0 0 0 3 1"/></svg></span></span></span><span class="lbl">Jigging</span></button><button class="hl" data-h="3"><span class="ring"><span class="in sun"><svg viewBox="-100 -610 200 620" height="34" aria-hidden="true"><path fill-rule="evenodd" d="M-70 0 L-52 -330 L52 -330 L70 0 Z M-88 -330 H88 V-372 H-88 Z M-50 -372 H50 V-470 H-50 Z M-62 -470 Q0 -560 62 -470 Z M-6 -550 H6 V-600 H-6 Z M-30 -385 H30 V-457 H-30 Z" fill="#0B1F33"/></svg></span></span><span class="lbl">Sessions</span></button><button class="hl" data-h="4"><span class="ring"><span class="in sand"><img src="assets/symbol.svg" alt="" style="width:40px"></span></span><span class="lbl">Crew</span></button><button class="hl" data-h="5"><span class="ring"><span class="in navy"><span class="mini">APP</span></span></span><span class="lbl">App</span></button></div>
 </div>
-<nav class="tabs" aria-label="Sections"><a class="on" href="#posts">Posts</a><a href="#sessions">Sessions</a><a href="#about">About</a><a href="#app">App</a></nav>
+<nav class="tabs" aria-label="Sections"><a class="on" href="#posts">Posts</a><a href="#sessions">Sessions</a><a href="#about">About</a></nav>
 <div class="wrap gridwrap" id="posts"><div class="grid"><button class="post navy" data-i="0" aria-label="Voir la publication 1"><div class="tile"><img src="assets/wordmark-white.svg" alt="" class="wm"><p class="t-xl">THE FUTURE<br>FISHING MEDIA</p></div></button><button class="post sand" data-i="1" aria-label="Voir la publication 2"><div class="tile"><div class="art" style="width:92%;height:92%"><svg viewBox="-117.0 -112.5 234.0 216.0" aria-hidden="true"><defs><clipPath id="cp2"><circle r="90"/></clipPath></defs><g clip-path="url(#cp2)"><circle r="90" fill="#E2703A"/><rect x="-90" y="5.3" width="180" height="2.1" fill="#F1ECE2"/><rect x="-90" y="18.4" width="180" height="3.5" fill="#F1ECE2"/><rect x="-90" y="30.3" width="180" height="4.9" fill="#F1ECE2"/><rect x="-90" y="40.9" width="180" height="6.2" fill="#F1ECE2"/><rect x="-90" y="50.2" width="180" height="7.6" fill="#F1ECE2"/><rect x="-90" y="58.2" width="180" height="9.0" fill="#F1ECE2"/><rect x="-90" y="65.0" width="180" height="10.4" fill="#F1ECE2"/></g><rect x="-117.0" y="88.94117647058823" width="234.0" height="2.6" fill="#0B1F33"/><g transform="translate(4.2 -7.4) rotate(-26) scale(0.265)"><path d="M-330 0 C-250 -70 -80 -105 60 -95 C150 -88 230 -55 270 -22 L330 -95 L310 0 L330 95 L270 22 C230 55 150 88 60 95 C-80 105 -250 70 -330 0 Z M-20 -95 L60 -175 L90 -92 Z M-10 95 L60 165 L80 92 Z" fill="#0B1F33" stroke="#F1ECE2" stroke-width="18" paint-order="stroke"/></g></svg></div></div></button><button class="post sun" data-i="2" aria-label="Voir la publication 3"><div class="tile"><p class="t-lg">SHARE STORIES,<br>NOT COORDINATES.</p></div></button><button class="post navy" data-i="3" aria-label="Voir la publication 4"><div class="tile"><div class="art"><svg viewBox="-100 -610 200 620" aria-hidden="true"><path fill-rule="evenodd" d="M-70 0 L-52 -330 L52 -330 L70 0 Z M-88 -330 H88 V-372 H-88 Z M-50 -372 H50 V-470 H-50 Z M-62 -470 Q0 -560 62 -470 Z M-6 -550 H6 V-600 H-6 Z M-30 -385 H30 V-457 H-30 Z" fill="#F1ECE2"/></svg></div><p class="t-sm">35°47'N · 5°55'W</p></div></button><button class="post white" data-i="4" aria-label="Voir la publication 5"><div class="tile"><p class="kick">SPECIES FILE 01</p><div class="art"><svg viewBox="-360 -200 720 400" aria-hidden="true"><g transform="rotate(-8)"><path d="M-330 0 C-250 -70 -80 -105 60 -95 C150 -88 230 -55 270 -22 L330 -95 L310 0 L330 95 L270 22 C230 55 150 88 60 95 C-80 105 -250 70 -330 0 Z M-20 -95 L60 -175 L90 -92 Z M-10 95 L60 165 L80 92 Z" fill="#0B1F33"/></g></svg></div><p class="t-md">BLUEFIN TUNA</p><p class="t-xs">Thunnus thynnus</p></div></button><button class="post sand" data-i="5" aria-label="Voir la publication 6"><div class="tile"><p class="kick">FOUNDED IN</p><p class="t-xl">BARCELONA</p><p class="t-sm">JUNE 2026</p></div></button><button class="post navy" data-i="6" aria-label="Voir la publication 7"><div class="tile"><p class="kick">SPARTEL SESSIONS</p><p class="t-lg">SEASON 01</p><div class="art"><svg viewBox="-100 -610 200 620" aria-hidden="true"><path fill-rule="evenodd" d="M-70 0 L-52 -330 L52 -330 L70 0 Z M-88 -330 H88 V-372 H-88 Z M-50 -372 H50 V-470 H-50 Z M-62 -470 Q0 -560 62 -470 Z M-6 -550 H6 V-600 H-6 Z M-30 -385 H30 V-457 H-30 Z" fill="#E2703A"/></svg></div><p class="t-xs">Filmed on every trip</p></div></button><button class="post white" data-i="7" aria-label="Voir la publication 8"><div class="tile"><p class="kick">LURE OF THE MONTH</p><div class="art lure"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12c3-5 9-6 14-3-2 5-8 7-14 3z"/><circle cx="15" cy="10" r="1"/><path d="M5 12l-2 3M19 9l2-1"/><path d="M8 15v3a2 2 0 0 0 3 1"/></svg></div><p class="t-md">SLOW JIG 80 G</p><p class="t-xs">Drop. Flutter. Wait.</p></div></button><button class="post sun" data-i="8" aria-label="Voir la publication 9"><div class="tile"><p class="t-xl">TWO SEAS.<br>ONE CREW.</p></div></button><button class="post sand" data-i="9" aria-label="Voir la publication 10"><div class="tile"><div class="art" style="width:78%;height:78%"><img src="assets/badge.svg" alt="" class="badge"></div></div></button><button class="post navy" data-i="10" aria-label="Voir la publication 11"><div class="tile"><p class="kick">FIELD NOTE</p><p class="t-lg">NEW MOON.<br>BIG TIDES.<br>GO.</p></div></button><button class="post white" data-i="11" aria-label="Voir la publication 12"><div class="tile"><div class="phone"><div class="scr"><img src="assets/symbol.svg" alt=""><p>SPARTEL</p><span></span><span></span><span class="s"></span></div></div><p class="t-xs">The crew app is live</p></div></button></div></div>
 
 <section class="block" id="sessions"><div class="wrap">
@@ -202,28 +268,14 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;
  <div><b>Real fishing only</b><p>No staged catches, no borrowed fish. If it is on Spartel, it happened on our boat.</p></div>
 </div></div></section>
 
-<section class="block" id="app"><div class="wrap">
- <div class="app">
-  <div>
-   <p class="kicker" style="color:var(--sun)">The crew app</p>
-   <h2 class="h" style="font-size:clamp(24px,4.4vw,38px)">Every spot.<br>Every catch.<br>Kept in the crew.</h2>
-   <ul>
-    <li>GPS spots, private by default, shared with the crew when you decide</li>
-    <li>Every catch logged with its lure, depth, wind, swell and moon</li>
-    <li>Your lure box, ranked by what actually catches</li>
-    <li>Trips and tracks imported straight from the boat's Humminbird</li>
-   </ul>
-   <div class="cta"><a class="btn p" href="app/#/signup">Join the crew</a><a class="btn g" href="app/">Log in</a></div>
-  </div>
-  <div class="phone"><div class="scr"><img src="assets/symbol.svg" alt=""><p>SPARTEL</p><span></span><span></span><span class="s"></span></div></div>
- </div>
-</div></section>
+
+<section class="block"><div class="wrap" style="text-align:center"><img src="assets/symbol.svg" alt="" width="84" height="84" style="margin:0 auto 14px;display:block"><h2 class="h" style="font-size:clamp(26px,4.6vw,42px)">Ready for the next trip?</h2><p class="lead" style="max-width:520px;margin:12px auto 24px">Join the crew, log your first catch, and keep your spots where they belong.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><a class="btn p" href="app/#/signup">Join the crew</a><a class="btn d" href="app/">Log in</a></div></div></section>
 </main>
 <footer><div class="wrap"><img src="assets/wordmark.svg" alt="Spartel" style="height:26px"><span>© 2026 Spartel · Barcelona · Atlantic · Mediterranean</span><a href="app/">Log in</a></div></footer>
 
 <div class="modal" id="m" role="dialog" aria-modal="true" aria-label="Publication"><button class="x" id="mx" aria-label="Fermer">×</button><div id="mc"></div></div>
 <script>
-const D={"posts": [{"cap": "Spartel is a fishing media made by anglers, for anglers. Films, photos and field notes from where the Atlantic meets the Mediterranean.", "tag": "#thefuturefishingmedia"}, {"cap": "Sunrise, slack tide, a tuna breaking the surface. That is the whole brief.", "tag": "#offshore #bluefin"}, {"cap": "Rule number one of the crew. We will show you everything: the fish, the gear, the sunrise. Never the waypoint.", "tag": "#crewrules"}, {"cap": "Cap Spartel, near Tangier. The lighthouse that gave us our name, standing where two seas meet.", "tag": "#capspartel #tanger"}, {"cap": "Species file 01: the bluefin. Every year it crosses the strait, and every year we try to be there.", "tag": "#speciesfile #bluefintuna"}, {"cap": "Founded in Barcelona in June 2026, by a crew of friends who spend their weekends on the water between Spain and Morocco.", "tag": "#barcelona #since2026"}, {"cap": "Spartel Sessions, Season 01. One boat, one crew, every trip on camera. Raw, long, honest fishing films.", "tag": "#spartelsessions"}, {"cap": "Lure of the month: the 80 g slow jig. Dropped on the rocks at dawn, it does most of the work for you.", "tag": "#slowjig #lureofthemonth"}, {"cap": "Atlantic on one side, Mediterranean on the other. Same crew, same boat, two completely different fisheries.", "tag": "#atlantic #mediterranean"}, {"cap": "The crew badge. Earned on the water, worn on the cap.", "tag": "#spartelcrew"}, {"cap": "Field note: when the moon goes dark and the tides get big, the fish wake up. We log every catch with wind, swell and moon to prove it.", "tag": "#fieldnotes"}, {"cap": "Our own app: every spot, every catch, every lure, logged with the conditions of the moment. Private by default, shared with the crew when you decide.", "tag": "#spartelapp"}], "hl": [{"n": "Spots", "t": "Every spot we fish is logged in the Spartel app: depth, bottom, best lure, best moment. Private by default. Shared with the crew only."}, {"n": "Tuna", "t": "Bluefin season is the heartbeat of the strait. We follow it from the first boils in spring to the last runs of autumn."}, {"n": "Jigging", "t": "Slow jig, speed jig, madai: the crew's favourite way to fish the rocks of the strait."}, {"n": "Sessions", "t": "Spartel Sessions: long-form fishing films shot on every trip. Season 01 is being filmed now."}, {"n": "Crew", "t": "A crew of friends between Barcelona and Tangier. Different jobs, same boat, same obsession."}, {"n": "App", "t": "The Spartel app is live for the crew: spots, catches, lures, trips and Solix tracks in one place."}]};
+const D={"posts": [{"cap": "Spartel is a fishing media made by anglers, for anglers. Films, photos and field notes from where the Atlantic meets the Mediterranean.", "tag": "#thefuturefishingmedia"}, {"cap": "Sunrise, slack tide, a tuna breaking the surface. That is the whole brief.", "tag": "#offshore #bluefin"}, {"cap": "Rule number one of the crew. We will show you everything: the fish, the gear, the sunrise. Never the waypoint.", "tag": "#crewrules"}, {"cap": "Cap Spartel, near Tangier. The lighthouse that gave us our name, standing where two seas meet.", "tag": "#capspartel #tanger"}, {"cap": "Species file 01: the bluefin. Every year it crosses the strait, and every year we try to be there.", "tag": "#speciesfile #bluefintuna"}, {"cap": "Founded in Barcelona in June 2026, by a crew of friends who spend their weekends on the water between Spain and Morocco.", "tag": "#barcelona #since2026"}, {"cap": "Spartel Sessions, Season 01. One boat, one crew, every trip on camera. Raw, long, honest fishing films.", "tag": "#spartelsessions"}, {"cap": "Lure of the month: the 80 g slow jig. Dropped on the rocks at dawn, it does most of the work for you.", "tag": "#slowjig #lureofthemonth"}, {"cap": "Atlantic on one side, Mediterranean on the other. Same crew, same boat, two completely different fisheries.", "tag": "#atlantic #mediterranean"}, {"cap": "The crew badge. Earned on the water, worn on the cap.", "tag": "#spartelcrew"}, {"cap": "Field note: when the moon goes dark and the tides get big, the fish wake up. We log every catch with wind, swell and moon to prove it.", "tag": "#fieldnotes"}, {"cap": "Our own app: every spot, every catch, every lure, logged with the conditions of the moment. Private by default, shared with the crew when you decide.", "tag": "#spartelapp"}], "hl": [{"n": "Spots", "t": "Every spot we fish is logged in the Spartel app: depth, bottom, best lure, best moment. Private by default. Shared with the crew only."}, {"n": "Tuna", "t": "Bluefin season is the heartbeat of the strait. We follow it from the first boils in spring to the last runs of autumn."}, {"n": "Jigging", "t": "Slow jig, speed jig, madai: the crew's favourite way to fish the rocks of the strait."}, {"n": "Sessions", "t": "Spartel Sessions: long-form fishing films shot on every trip. Season 01 is being filmed now."}, {"n": "Crew", "t": "A crew of friends between Barcelona and Tangier. Different jobs, same boat, same obsession."}, {"n": "App", "t": "The Spartel app is live for the crew: spots, catches, lures, trips and Solix tracks in one place. Scroll up to see it."}]};
 const m=document.getElementById('m'),mc=document.getElementById('mc');
 let timer;
 function close(){m.classList.remove('open');mc.innerHTML='';clearTimeout(timer);}
@@ -245,7 +297,7 @@ document.querySelectorAll('.hl').forEach(b=>b.onclick=()=>{
 });
 const tabs=[...document.querySelectorAll('.tabs a')];
 const obs=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){tabs.forEach(t=>t.classList.toggle('on',t.getAttribute('href')==='#'+e.target.id));}}),{rootMargin:'-45% 0px -50% 0px'});
-['posts','sessions','about','app'].forEach(id=>obs.observe(document.getElementById(id)));
+['posts','sessions','about'].forEach(id=>obs.observe(document.getElementById(id)));
 </script>
 </body>
 </html>
