@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
         acctId = acct.id;
         await admin.from('captains').update({ stripe_account_id: acctId }).eq('user_id', user.id);
       }
-      const back = typeof return_url === 'string' && return_url.startsWith('https://') ? return_url : 'https://enzofpaduano-create.github.io/spartel/app/#/captain';
+      const back = typeof return_url === 'string' && return_url.startsWith('https://') ? return_url : 'https://spartel-fishing.com/app/#/captain';
       const link = await stripe('/account_links', { account: acctId, refresh_url: back, return_url: back, type: 'account_onboarding' });
       return json({ url: link.url });
     }
