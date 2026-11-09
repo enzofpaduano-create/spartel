@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
-import { SUPABASE_URL, SUPABASE_KEY, HOME_POS } from './config.js';
+import { SUPABASE_URL, SUPABASE_KEY, HOME_POS, PLACES } from './config.js';
 import { fmtCoord, parseCoords, parseGPX, buildGPX, buildKML, buildCSV, parseAny, bearing, trackStats, simplify, fetchConditions, fetchCurrent, windDir, moonPhase, haversine } from './geo.js';
 import { readPhotoMeta, compressImage, MAX_VIDEO_MB } from './media.js';
 import { queueAdd, queueAll, queueDelete } from './offline.js';
@@ -1171,13 +1171,25 @@ async function viewForecast() {
   const { data: spots } = await sb.from('spots').select('id, name, lat, lon').eq('crew_id', S.crew.id).order('name');
   let loc = HOME_POS;
   if (q.spot) { const s = (spots || []).find((x) => x.id === q.spot); if (s) loc = { lat: s.lat, lon: s.lon, name: s.name }; }
+  else if (q.place) { const p = PLACES.find((x) => x.id === q.place); if (p) loc = { lat: p.lat, lon: p.lon, name: p.name }; }
+  const cur = q.spot ? 's:' + q.spot : 'p:' + (q.place || 'cap-spartel');
+  const regions = [...new Set(PLACES.map((p) => p.region))];
+  const opts = ((spots || []).length ? `<optgroup label="Mes spots">${spots.map((s) => `<option value="s:${s.id}">${esc(s.name)}</option>`).join('')}</optgroup>` : '')
+    + regions.map((r) => `<optgroup label="${esc(r)}">${PLACES.filter((p) => p.region === r).map((p) => `<option value="p:${p.id}">${esc(p.name)}</option>`).join('')}</optgroup>`).join('');
   page(`<main class="screen">${topbar({ title: 'Prévisions', back: true })}
-    <div class="row"><label class="f" style="flex:1">Lieu<select id="loc"><option value="">${esc(HOME_POS.name)}</option>${(spots || []).map((s) => `<option value="${s.id}" ${s.id === q.spot ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></label><button class="iconbtn" id="me" aria-label="Ma position" style="align-self:flex-end;background:#fff;border:1px solid var(--line)">${icon('locate')}</button></div>
+    <div class="row"><label class="f" style="flex:1">Lieu<select id="loc">${opts}</select></label><button class="iconbtn" id="me" aria-label="Ma position" style="align-self:flex-end;background:#fff;border:1px solid var(--line)">${icon('locate')}</button></div>
     <div id="fc"><p class="muted">Calcul des prévisions…</p></div>
     <p class="small muted" style="margin:0">Indice Spartel : lune, périodes solunaires à l’aube et au crépuscule, vent, houle et marnage. C’est un indicateur, pas une garantie. Marées calculées par modèle (Open-Meteo), à ne pas utiliser pour la navigation.</p>
   </main>`, { tab: 'home' });
-  $app.querySelector('#loc').onchange = (e) => go(e.target.value ? `#/forecast?spot=${e.target.value}` : '#/forecast');
-  $app.querySelector('#me').onclick = async () => { try { const p = await getPosition(); render({ lat: p.lat, lon: p.lon, name: 'Ma position' }); } catch (e) { fail(e); } };
+  const sel = $app.querySelector('#loc'); sel.value = cur;
+  sel.onchange = (e) => { const [k, v] = e.target.value.split(':'); go(k === 's' ? `#/forecast?spot=${v}` : `#/forecast?place=${v}`); };
+  $app.querySelector('#me').onclick = async () => {
+    try {
+      const p = await getPosition();
+      if (!sel.querySelector('option[value="me"]')) sel.insertAdjacentHTML('afterbegin', '<option value="me">Ma position</option>');
+      sel.value = 'me'; render({ lat: p.lat, lon: p.lon, name: 'Ma position' });
+    } catch (e) { fail(e); }
+  };
   const render = async (L) => {
     const box = $app.querySelector('#fc'); box.innerHTML = '<p class="muted">Calcul des prévisions…</p>';
     let days;
