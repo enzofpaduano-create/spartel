@@ -5,12 +5,15 @@ import { readPhotoMeta, compressImage, MAX_VIDEO_MB } from './media.js';
 import { queueAdd, queueAll, queueDelete } from './offline.js';
 import { market } from './market.js';
 import { openShareCard } from './share.js';
+import { friendsModule } from './friends.js';
+import { installCard, installInit, isStandalone, installHidden } from './install.js';
+import { pushStatus, enablePush, disablePush, syncPush } from './push.js';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 const $app = document.getElementById('app');
 
 const S = {
-  user: null, profile: null, crew: null, crews: [], members: {}, memberIds: [],
+  user: null, profile: null, friendRows: [], members: {}, memberIds: [], unread: 0,
   coordMode: localStorage.getItem('coordMode') || 'ddm',
   lastPos: null, map: null, cleanup: [],
 };
@@ -48,6 +51,7 @@ const ICONS = {
   map: '<path d="M9 4l-6 2v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   lure: '<path d="M5 12c3-5 9-6 14-3-2 5-8 7-14 3z"/><circle cx="15" cy="10" r="1"/><path d="M5 12l-2 3M19 9l2-1"/><path d="M8 15v3a2 2 0 0 0 3 1"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 21a2 2 0 0 0 4 0"/>',
   crew: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.5 3-6 6-6s6 2.5 6 6M15 14.5c3 0 6 2 6 5.5"/>',
   pin: '<path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/>',
   wind: '<path d="M3 8h11a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h8"/>',
@@ -98,7 +102,7 @@ async function signed(paths) {
   return (p) => (p && urlCache.get(p)?.url) || null;
 }
 async function upload(blob, kind, ext) {
-  const path = `${S.crew.id}/${kind}/${uuid()}.${ext}`;
+  const path = `${S.user.id}/${kind}/${uuid()}.${ext}`;
   const { error } = await sb.storage.from('media').upload(path, blob, { contentType: blob.type || undefined, upsert: false });
   if (error) throw error;
   return path;
@@ -108,7 +112,7 @@ const extOf = (file, def) => (file?.name?.split('.').pop() || def).toLowerCase()
 /* ---------------- Mise en page ---------------- */
 function tabbar(active) {
   const t = (h, ic, label, key) => `<a href="${h}" class="${active === key ? 'on' : ''}" ${active === key ? 'aria-current="page"' : ''}>${icon(ic)}<span>${label}</span></a>`;
-  return `<nav class="tabbar" aria-label="Navigation principale">${t('#/', 'home', 'Accueil', 'home')}${t('#/map', 'map', 'Carte', 'map')}<a href="#/catch-new" class="fab" aria-label="Nouvelle prise">${icon('plus', 28, 2.6)}</a>${t('#/outings', 'boat', 'Sorties', 'outings')}${t('#/crew', 'crew', 'Équipe', 'crew')}</nav>`;
+  return `<nav class="tabbar" aria-label="Navigation principale">${t('#/', 'home', 'Accueil', 'home')}${t('#/map', 'map', 'Carte', 'map')}<a href="#/catch-new" class="fab" aria-label="Nouvelle prise">${icon('plus', 28, 2.6)}</a>${t('#/outings', 'boat', 'Sorties', 'outings')}${t('#/friends', 'crew', 'Amis', 'friends')}</nav>`;
 }
 function topbar({ title = '', back = false, right = '' } = {}) {
   const left = back
@@ -167,19 +171,16 @@ async function shareOrCopy(text, title = 'Spartel') {
 }
 
 /* ---------------- Données de base ---------------- */
-async function loadMembers() {
-  const { data: mem } = await sb.from('crew_members').select('user_id, role').eq('crew_id', S.crew.id);
-  S.memberIds = (mem || []).map((m) => m.user_id);
-  const { data: profs } = await sb.from('profiles').select('id, display_name, bio').in('id', S.memberIds.length ? S.memberIds : ['00000000-0000-0000-0000-000000000000']);
+async function loadFriends() {
+  const me = S.user.id;
+  const { data: rows } = await sb.from('friendships').select('id, requester_id, addressee_id, status, created_at');
+  S.friendRows = rows || [];
+  const ids = new Set([me]);
+  S.friendRows.forEach((r) => { ids.add(r.requester_id); ids.add(r.addressee_id); });
+  const { data: profs } = await sb.from('profiles').select('id, display_name, bio, home_port').in('id', [...ids]);
   S.members = {};
-  (profs || []).forEach((p) => (S.members[p.id] = { ...p, role: mem.find((m) => m.user_id === p.id)?.role }));
-}
-async function loadCrew() {
-  const { data: crews } = await sb.from('crews').select('*').order('created_at');
-  S.crews = crews || [];
-  const saved = localStorage.getItem('crewId');
-  S.crew = S.crews.find((c) => c.id === saved) || S.crews[0] || null;
-  if (S.crew) { localStorage.setItem('crewId', S.crew.id); await loadMembers(); }
+  (profs || []).forEach((p) => (S.members[p.id] = p));
+  S.memberIds = [me, ...S.friendRows.filter((r) => r.status === 'accepted').map((r) => (r.requester_id === me ? r.addressee_id : r.requester_id))];
 }
 async function loadProfile() {
   const { data } = await sb.from('profiles').select('*').eq('id', S.user.id).maybeSingle();
@@ -193,11 +194,14 @@ async function viewAuth(mode = 'login') {
   teardown();
   const inviteTok = localStorage.getItem('pendingInvite') || '';
   const crewCode = localStorage.getItem('pendingJoin') || '';
-  let inv = null;
+  const friendCode = localStorage.getItem('pendingFriend') || '';
+  let inv = null, finfo = null;
   if (mode === 'signup' && inviteTok) { const { data } = await sb.rpc('invite_info', { p_token: inviteTok }); inv = data; }
+  if (friendCode) { const { data } = await sb.rpc('friend_invite_info', { p_code: friendCode }); finfo = data; if (!finfo) localStorage.removeItem('pendingFriend'); }
   const gateNote = mode !== 'signup' ? ''
     : inv ? `<p class="okbox">${icon('check', 16, 3)} Ton accès est accepté. Crée ton compte.</p>`
-    : crewCode ? `<p class="okbox">${icon('users', 16)} Invitation à rejoindre un équipage : crée ton compte.</p>`
+    : finfo ? `<p class="okbox">${icon('users', 16)}<span><b>${esc(finfo.name)}</b> t’invite : vous serez amis dès la création de ton compte.</span></p>`
+    : crewCode ? `<p class="okbox">${icon('users', 16)} Tu as une invitation : crée ton compte.</p>`
     : `<p class="hint" style="margin:0 0 4px">Spartel est sur invitation. Si ta demande a été acceptée, utilise le même e-mail. Sinon, <a href="${ACCESS_URL}">demande ton accès</a>.</p>`;
   $app.innerHTML = `<main class="auth">
     <img class="logo" src="icons/wordmark.svg" alt="Spartel">
@@ -207,9 +211,10 @@ async function viewAuth(mode = 'login') {
         <button class="chip ${mode === 'signup' ? 'on' : ''}" data-mode="signup" role="tab" aria-selected="${mode === 'signup'}">Créer un compte</button>
       </div>
       <form id="authf">${gateNote}
-        ${mode === 'signup' ? `<label class="f">Prénom (affiché dans l’équipe)<input name="name" required autocomplete="given-name" maxlength="40" value="${esc(inv?.name?.split(' ')[0] || '')}"></label>` : ''}
+        ${mode === 'signup' ? `<label class="f">Prénom (affiché à tes amis)<input name="name" required autocomplete="given-name" maxlength="40" value="${esc(inv?.name?.split(' ')[0] || '')}"></label>` : ''}
         <label class="f">E-mail<input name="email" type="email" required autocomplete="email" inputmode="email" value="${esc(inv?.email || '')}"></label>
         <label class="f">Mot de passe<input name="password" type="password" required minlength="6" autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}"></label>
+        ${mode === 'signup' ? `<label class="f">Ma base préférée (météo, carte et accueil)<select name="fav" required><option value="" disabled selected>Choisis ta base…</option>${placeOptions([])}</select></label>` : ''}
         <button class="btn sun" type="submit">${mode === 'signup' ? 'Créer mon compte' : 'Se connecter'}</button>
         ${mode === 'login' ? '<button type="button" class="btn ghost sm" id="forgot">Mot de passe oublié</button>' : ''}
       </form>
@@ -224,9 +229,9 @@ async function viewAuth(mode = 'login') {
     btn.disabled = true;
     try {
       if (mode === 'signup') {
-        const { data: ok } = await sb.rpc('signup_allowed', { p_email: fd.get('email'), p_invite: inviteTok || null, p_crew_code: crewCode || null });
+        const { data: ok } = await sb.rpc('signup_allowed', { p_email: fd.get('email'), p_invite: inviteTok || null, p_crew_code: crewCode || null, p_friend_code: friendCode || null });
         if (!ok) { gateModal(); return; }
-        const { data, error } = await sb.auth.signUp({ email: fd.get('email'), password: fd.get('password'), options: { data: { display_name: fd.get('name'), invite: inviteTok || undefined, crew_code: crewCode || undefined }, emailRedirectTo: location.origin + location.pathname } });
+        const { data, error } = await sb.auth.signUp({ email: fd.get('email'), password: fd.get('password'), options: { data: { display_name: fd.get('name'), invite: inviteTok || undefined, crew_code: crewCode || undefined, friend_code: friendCode || undefined, fav_place: fd.get('fav') || undefined }, emailRedirectTo: location.origin + location.pathname } });
         if (error) { if (/database error|INVITE_ONLY/i.test(error.message)) { gateModal(); return; } throw error; }
         localStorage.removeItem('pendingInvite');
         if (!data.session) { toast('Compte créé. Confirme ton e-mail puis connecte-toi.', 6000); viewAuth('login'); }
@@ -260,45 +265,35 @@ function viewReset() {
   };
 }
 
-/* ---------------- Équipage : création / invitation ---------------- */
-function viewOnboarding() {
-  const code = localStorage.getItem('pendingJoin') || '';
-  page(`<main class="auth">
-    <img class="logo" src="icons/badge.svg" alt="Badge Spartel Crew" style="max-width:180px">
-    <div class="card"><h2 class="h" style="font-size:18px">Rejoindre un équipage</h2>
-      <p class="hint">Entre le code reçu d’un ami (ou ouvre son lien d’invitation).</p>
-      <form id="jf"><label class="f">Code d’invitation<input name="code" required maxlength="10" value="${esc(code)}" style="text-transform:uppercase;letter-spacing:.2em" autocomplete="off"></label><button class="btn sun">Rejoindre</button></form></div>
-    <div class="card"><h2 class="h" style="font-size:18px">Créer un équipage</h2>
-      <form id="cf"><label class="f">Nom<input name="name" required maxlength="40" value="Spartel Crew"></label><button class="btn">Créer</button></form></div>
-    <a class="btn ghost" href="#/outings">${icon('boat', 18)}Juste réserver une sortie en mer</a>
-    <button class="btn ghost sm" id="lo">Se déconnecter</button>
-  </main>`, { tab: false });
-  $app.querySelector('#jf').onsubmit = async (e) => {
-    e.preventDefault();
-    const { data, error } = await sb.rpc('join_crew', { code: e.target.code.value });
-    if (error) return fail(error.message.includes('invalide') ? new Error('Code invalide') : error);
-    localStorage.removeItem('pendingJoin'); localStorage.setItem('crewId', data.id);
-    toast(`Bienvenue dans ${data.name}`); await boot();
-  };
-  $app.querySelector('#cf').onsubmit = async (e) => {
-    e.preventDefault();
-    const { data, error } = await sb.rpc('create_crew', { crew_name: e.target.name.value.trim() });
-    if (error) return fail(error);
-    localStorage.setItem('crewId', data.id); toast('Équipage créé'); await boot();
-  };
-  $app.querySelector('#lo').onclick = () => sb.auth.signOut();
+/* ---------------- Bienvenue (lien d'un ami / partage) ---------------- */
+async function viewWelcome() {
+  teardown();
+  const code = localStorage.getItem('pendingFriend') || '';
+  let info = null;
+  if (code) { const { data } = await sb.rpc('friend_invite_info', { p_code: code }); info = data; if (!info) localStorage.removeItem('pendingFriend'); }
+  $app.innerHTML = `<main class="auth">
+    <img class="logo" src="icons/wordmark.svg" alt="Spartel">
+    <div class="card">
+      <h1 class="h" style="font-size:22px;margin:0 0 6px">${info ? `${esc(info.name)} t’invite sur Spartel` : 'Bienvenue sur Spartel'}</h1>
+      <p class="muted" style="margin:0 0 14px">L’appli des pêcheurs en mer : spots, prises, météo marine, sorties entre amis.${info ? ' Crée ton compte avec ce lien : vous serez amis tout de suite.' : ''}</p>
+      <div class="btn-row" style="flex-direction:column"><button class="btn sun" id="wsign">Créer mon compte</button><button class="btn ghost" id="wlog">J’ai déjà un compte</button></div>
+    </div>
+    ${installCard({ welcome: true })}
+    <p class="hint" style="text-align:center">Spartel · Atlantic · Mediterranean</p>
+  </main>`;
+  installInit($app);
+  $app.querySelector('#wsign').onclick = () => { history.replaceState(null, '', '#/signup'); viewAuth('signup'); };
+  $app.querySelector('#wlog').onclick = () => { history.replaceState(null, '', '#/'); viewAuth('login'); };
 }
 
 /* ---------------- Accueil ---------------- */
 async function viewHome() {
   const pending = await queueAll().catch(() => []);
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-  const showInstall = isIOS && !standalone && !localStorage.getItem('hideInstall');
+  const showInstall = !isStandalone() && !installHidden();
   page(`<main class="screen">
-    ${topbar({ right: `<a href="#/crew" aria-label="Mon profil"><span class="avatar sun lg">${esc(initials(S.profile?.display_name))}</span></a>` })}
+    ${topbar({ right: `${F.bell()}<a href="#/me" aria-label="Mon profil"><span class="avatar sun lg">${esc(initials(S.profile?.display_name))}</span></a>` })}
     ${pending.length ? `<div class="banner"><span>${pending.length} prise${pending.length > 1 ? 's' : ''} en attente de réseau</span><button class="btn sm" id="sync" style="background:var(--navy)">Envoyer</button></div>` : ''}
-    ${showInstall ? `<div class="card install"><div class="row between"><b>Installer Spartel sur l’iPhone</b><button class="iconbtn" id="hideInstall" aria-label="Masquer">✕</button></div><p class="muted" style="margin:6px 0 0">Dans Safari : bouton <b>Partager</b> ${icon('share', 16)} puis <b>Sur l’écran d’accueil</b>.</p></div>` : ''}
+    ${showInstall ? installCard({ dismissible: true }) : ''}
     <nav class="shortcuts" aria-label="Raccourcis">${[['#/forecast', 'sun', 'Prévisions'], ['#/lures', 'lure', 'Leurres'], ['#/trips', 'clock', 'Carnet de sorties'], ['#/stats', 'chart', 'Stats'], ['#/gpx', 'sd', 'Import / Export'], [`#/u/${S.user.id}`, 'users', 'Mon profil public']].map(([h, i, l]) => `<a href="${h}">${icon(i, 22)}<span>${l}</span></a>`).join('')}</nav>
     <section id="homeOut" style="display:flex;flex-direction:column;gap:10px"></section>
     <section class="card" id="next"><p class="kicker">Prochaine sortie</p><p class="muted">Chargement…</p></section>
@@ -307,7 +302,7 @@ async function viewHome() {
     <h2 class="kicker" style="margin:6px 0 0">Dernières prises</h2>
     <section id="feed" style="display:flex;flex-direction:column;gap:14px"><p class="muted">Chargement…</p></section>
   </main>`, { tab: 'home' });
-  const hi = $app.querySelector('#hideInstall'); if (hi) hi.onclick = () => { localStorage.setItem('hideInstall', '1'); hi.closest('.card').remove(); };
+  installInit($app);
   const sy = $app.querySelector('#sync'); if (sy) sy.onclick = () => syncQueue(true);
   M.homeOutings($app.querySelector('#homeOut')).catch(() => {});
   if (S.profile?.is_admin) sb.from('access_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending').then(({ count }) => {
@@ -315,7 +310,7 @@ async function viewHome() {
   });
 
   // Prochaine sortie
-  sb.from('trips').select('*').eq('crew_id', S.crew.id).gte('trip_date', todayISO()).order('trip_date').limit(1).then(({ data }) => {
+  sb.from('trips').select('*').or(`created_by.eq.${S.user.id},members.cs.{${S.user.id}}`).gte('trip_date', todayISO()).order('trip_date').limit(1).then(({ data }) => {
     const t = data?.[0], el = $app.querySelector('#next'); if (!el) return;
     el.innerHTML = t
       ? `<a href="#/trip/${t.id}" style="text-decoration:none;color:inherit;display:block"><div class="row between"><p class="kicker">Prochaine sortie</p><span class="small muted">${t.members?.length || 0} à bord</span></div>
@@ -344,10 +339,10 @@ async function viewHome() {
   // Classement + fil
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
   const [{ data: month }, { data: feed }, { data: spots }, { data: lures }] = await Promise.all([
-    sb.from('catches').select('angler_id, created_by, species, weight_kg').eq('crew_id', S.crew.id).gte('caught_at', monthStart.toISOString()).not('weight_kg', 'is', null),
-    sb.from('catches').select('*').eq('crew_id', S.crew.id).order('caught_at', { ascending: false }).limit(20),
-    sb.from('spots').select('id, name').eq('crew_id', S.crew.id),
-    sb.from('lures').select('id, name, photo_path').eq('crew_id', S.crew.id),
+    sb.from('catches').select('angler_id, created_by, species, weight_kg').gte('caught_at', monthStart.toISOString()).not('weight_kg', 'is', null),
+    sb.from('catches').select('*').order('caught_at', { ascending: false }).limit(20),
+    sb.from('spots').select('id, name'),
+    sb.from('lures').select('id, name, photo_path'),
   ]);
   const best = {};
   (month || []).forEach((c) => { const a = c.angler_id || c.created_by; if (!best[a] || +c.weight_kg > +best[a].weight_kg) best[a] = c; });
@@ -449,20 +444,34 @@ async function commentsSection(root, catchId, canModerate, focus) {
 }
 
 /* ---------------- Carte ---------------- */
+const MAPOPT = () => { const b = localStorage.getItem('mapBase'); return { base: ['plan', 'sat'].includes(b) ? b : 'marine', seamarks: localStorage.getItem('mapSea') !== '0', bathy: localStorage.getItem('mapBathy') !== '0' }; };
+const EMOD = (layer) => `https://ows.emodnet-bathymetry.eu/wms?service=WMS&request=GetMap&version=1.1.1&layers=${layer}&styles=&format=image/png&transparent=true&srs=EPSG:3857&width=256&height=256&bbox={bbox-epsg-3857}`;
+const fade = (to) => ['interpolate', ['linear'], ['zoom'], 9.5, 0, 10.5, to];
 function baseStyle() {
+  const o = MAPOPT();
+  const vis = (on) => ({ visibility: on ? 'visible' : 'none' });
   return {
     version: 8,
     sources: {
+      ocean: { type: 'raster', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, maxzoom: 10, attribution: 'Esri, GEBCO, NOAA' },
       osm: { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, maxzoom: 19, attribution: '© OpenStreetMap' },
+      sat: { type: 'raster', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, maxzoom: 18, attribution: 'Esri, Maxar, Earthstar Geographics' },
+      bathy: { type: 'raster', tiles: [EMOD('emodnet:mean_multicolour')], tileSize: 256, attribution: '© EMODnet Bathymetry' },
       seamarks: { type: 'raster', tiles: ['https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png'], tileSize: 256, maxzoom: 18, attribution: '© OpenSeaMap' },
-      bathy: { type: 'raster', tiles: ['https://ows.emodnet-bathymetry.eu/wms?service=WMS&request=GetMap&version=1.1.1&layers=emodnet:mean_atlas_land&styles=&format=image/png&transparent=true&srs=EPSG:3857&width=256&height=256&bbox={bbox-epsg-3857}'], tileSize: 256, attribution: '© EMODnet Bathymetry' },
     },
     layers: [
-      { id: 'osm', type: 'raster', source: 'osm' },
-      { id: 'bathy', type: 'raster', source: 'bathy', layout: { visibility: 'none' }, paint: { 'raster-opacity': 0.75 } },
-      { id: 'seamarks', type: 'raster', source: 'seamarks' },
+      { id: 'ocean', type: 'raster', source: 'ocean', layout: vis(o.base === 'marine') },
+      { id: 'osm', type: 'raster', source: 'osm', layout: vis(o.base !== 'sat'), paint: { 'raster-opacity': o.base === 'marine' ? fade(1) : 1 } },
+      { id: 'sat', type: 'raster', source: 'sat', layout: vis(o.base === 'sat') },
+      { id: 'bathy', type: 'raster', source: 'bathy', layout: vis(o.bathy), paint: { 'raster-opacity': fade(0.4) } },
+      { id: 'seamarks', type: 'raster', source: 'seamarks', layout: vis(o.seamarks) },
     ],
   };
+}
+function applyMapOpts(map) {
+  const o = MAPOPT(), set = (id, on) => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
+  set('ocean', o.base === 'marine'); set('osm', o.base !== 'sat'); set('sat', o.base === 'sat'); set('seamarks', o.seamarks); set('bathy', o.bathy);
+  if (map.getLayer('osm')) map.setPaintProperty('osm', 'raster-opacity', o.base === 'marine' ? fade(1) : 1);
 }
 function pinEl(color, label) {
   const el = document.createElement('button');
@@ -483,19 +492,20 @@ async function viewMap() {
   page(`<div class="mapwrap"><div id="map" role="application" aria-label="Carte des spots"></div></div>
     <div class="map-top">
       <form class="search" id="sf"><span aria-hidden="true">${icon('search', 20)}</span><input name="q" placeholder="Spot ou coordonnées (35°48,2'N 5°58,9'W)" aria-label="Chercher un spot ou des coordonnées" autocomplete="off"><button class="iconbtn" type="button" id="gpx" aria-label="Importer un GPX du Solix">${icon('sd', 20)}</button></form>
-      <div class="chips" id="filters"><button class="chip on" data-f="all">Tous</button><button class="chip" data-f="mine">Mes spots</button><button class="chip" data-f="private">Privés</button><button class="chip" data-f="crew">Équipe</button>${BOTTOMS.slice(0, 4).map((b) => `<button class="chip" data-f="b:${b}">${b}</button>`).join('')}</div>
+      <div class="chips" id="filters"><button class="chip on" data-f="all">Tous</button><button class="chip" data-f="mine">Mes spots</button><button class="chip" data-f="private">Privés</button><button class="chip" data-f="friends">Amis</button>${BOTTOMS.slice(0, 4).map((b) => `<button class="chip" data-f="b:${b}">${b}</button>`).join('')}</div>
     </div>
-    <div class="map-fabs"><button class="iconbtn" id="heat" aria-label="Carte de chaleur des prises">${icon('fire')}</button><button class="iconbtn" id="layers" aria-label="Afficher les profondeurs">${icon('layers')}</button><button class="iconbtn" id="loc" aria-label="Ma position">${icon('locate')}</button><button class="iconbtn" id="addspot" aria-label="Ajouter un spot" style="background:var(--sun);color:#fff">${icon('plus', 24, 2.4)}</button></div>
+    <div class="map-fabs"><button class="iconbtn" id="heat" aria-label="Carte de chaleur des prises">${icon('fire')}</button><button class="iconbtn" id="base" aria-label="Revenir à ma base">${icon('home')}</button><button class="iconbtn" id="layers" aria-label="Fonds de carte et profondeurs">${icon('layers')}</button><button class="iconbtn" id="loc" aria-label="Ma position">${icon('locate')}</button><button class="iconbtn" id="addspot" aria-label="Ajouter un spot" style="background:var(--sun);color:#fff">${icon('plus', 24, 2.4)}</button></div>
     <div id="sheetHost"></div>`, { tab: 'map' });
 
-  const map = new maplibregl.Map({ container: 'map', style: baseStyle(), center: [HOME_POS.lon - 0.05, HOME_POS.lat], zoom: 10.5, attributionControl: { compact: true } });
+  const { data: spots } = await sb.from('spots').select('*').order('name');
+  const baseLoc = resolvePlace(S.profile?.fav_place || 'p:cap-spartel', spots) || resolvePlace('p:cap-spartel');
+  const map = new maplibregl.Map({ container: 'map', style: baseStyle(), center: [baseLoc.lon, baseLoc.lat], zoom: 11, attributionControl: { compact: true } });
   S.map = map; S.cleanup.push(() => { map.remove(); S.map = null; });
-  const { data: spots } = await sb.from('spots').select('*').eq('crew_id', S.crew.id).order('name');
   let markers = [], filter = 'all';
   const sheetHost = $app.querySelector('#sheetHost');
   const draw = () => {
     markers.forEach((m) => m.remove()); markers = [];
-    (spots || []).filter((s) => filter === 'all' || (filter === 'mine' && isMine(s)) || (filter === 'private' && s.visibility === 'private') || (filter === 'crew' && s.visibility === 'crew') || (filter.startsWith('b:') && s.bottom === filter.slice(2)))
+    (spots || []).filter((s) => filter === 'all' || (filter === 'mine' && isMine(s)) || (filter === 'private' && s.visibility === 'private') || (filter === 'friends' && s.visibility !== 'private') || (filter.startsWith('b:') && s.bottom === filter.slice(2)))
       .forEach((s) => {
         const el = pinEl(s.visibility === 'private' ? '#E2703A' : '#0B1F33', s.name);
         el.onclick = (e) => { e.stopPropagation(); showSheet(s); };
@@ -504,7 +514,7 @@ async function viewMap() {
   };
   const showSheet = (s) => {
     sheetHost.innerHTML = `<div class="sheet"><div class="row between" style="align-items:flex-start"><div class="grow"><p class="h" style="font-size:18px">${esc(s.name)}</p><p class="small muted" style="margin:4px 0 0">${fmtCoord(s.lat, s.lon, S.coordMode)}</p></div>
-      <span class="badge-vis">${icon(s.visibility === 'crew' ? 'users' : 'lock', 14)}${s.visibility === 'crew' ? 'Équipe' : 'Privé'}</span></div>
+      <span class="badge-vis">${icon(s.visibility !== 'private' ? 'users' : 'lock', 14)}${s.visibility !== 'private' ? 'Amis' : 'Privé'}</span></div>
       <div class="row wrap" style="gap:14px;margin-top:10px;font-weight:600;font-size:13px">${s.depth_min || s.depth_max ? `<span>${[s.depth_min, s.depth_max].filter((x) => x != null).map((x) => num(x, 0)).join('–')} m</span>` : ''}${s.bottom ? `<span class="muted">${esc(s.bottom)}</span>` : ''}${!isMine(s) ? `<span class="muted">par ${esc(nameOf(s.owner_id))}</span>` : ''}</div>
       <div class="btn-row" style="margin-top:12px"><button class="btn" id="cp">${icon('copy', 18)}Copier</button><a class="btn ghost" href="#/spot/${s.id}">Voir la fiche</a></div></div>`;
     sheetHost.querySelector('#cp').onclick = () => shareOrCopy(`${s.name} — ${fmtCoord(s.lat, s.lon, S.coordMode)}`);
@@ -513,11 +523,8 @@ async function viewMap() {
   map.on('load', () => {
     draw();
     if (q.lat && q.lon) map.jumpTo({ center: [+q.lon, +q.lat], zoom: 13 });
-    else if (spots?.length) {
-      const b = new maplibregl.LngLatBounds();
-      spots.forEach((s) => b.extend([s.lon, s.lat]));
-      map.fitBounds(b, { padding: 80, maxZoom: 12, duration: 0 });
-    }
+    // Base préférée : repère « Ma base »
+    { const el = document.createElement('div'); el.className = 'basepin'; el.innerHTML = `${icon('boat', 16, 2.4)}<span>${esc(baseLoc.name)}</span>`; new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([baseLoc.lon, baseLoc.lat]).addTo(map); }
     if (q.spot) { const s = spots.find((x) => x.id === q.spot); if (s) showSheet(s); }
   });
   $app.querySelectorAll('#filters .chip').forEach((c) => (c.onclick = () => {
@@ -528,16 +535,25 @@ async function viewMap() {
   $app.querySelector('#heat').onclick = async () => {
     heatOn = !heatOn;
     if (heatOn && !map.getSource('heat')) {
-      const { data: cs } = await sb.from('catches').select('lat, lon, weight_kg').eq('crew_id', S.crew.id).not('lat', 'is', null);
+      const { data: cs } = await sb.from('catches').select('lat, lon, weight_kg').not('lat', 'is', null);
       map.addSource('heat', { type: 'geojson', data: { type: 'FeatureCollection', features: (cs || []).map((c) => ({ type: 'Feature', properties: { w: +c.weight_kg || 1 }, geometry: { type: 'Point', coordinates: [c.lon, c.lat] } })) } });
       map.addLayer({ id: 'heat', type: 'heatmap', source: 'heat', paint: { 'heatmap-weight': ['interpolate', ['linear'], ['get', 'w'], 0, 0.4, 10, 1], 'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 18, 14, 40], 'heatmap-opacity': 0.75, 'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(226,112,58,0)', 0.3, 'rgba(242,176,122,0.6)', 0.7, '#E2703A', 1, '#B3261E'] } });
       toast(`${(cs || []).length} prise${(cs || []).length > 1 ? 's' : ''} sur la carte de chaleur`);
     } else if (map.getLayer('heat')) map.setLayoutProperty('heat', 'visibility', heatOn ? 'visible' : 'none');
   };
-  let bathyOn = false;
+  $app.querySelector('#base').onclick = () => map.flyTo({ center: [baseLoc.lon, baseLoc.lat], zoom: 11 });
   $app.querySelector('#layers').onclick = () => {
-    bathyOn = !bathyOn; map.setLayoutProperty('bathy', 'visibility', bathyOn ? 'visible' : 'none');
-    toast(bathyOn ? 'Profondeurs affichées (EMODnet)' : 'Profondeurs masquées');
+    const o = MAPOPT(), chip = (on, k, l) => `<button type="button" class="chip ${on ? 'on' : ''}" data-k="${k}">${l}</button>`;
+    sheetHost.innerHTML = `<div class="sheet"><p class="h" style="font-size:16px;margin:0 0 8px">Fond de carte</p>
+      <div class="chips" id="bases">${chip(o.base === 'marine', 'marine', 'Marine')}${chip(o.base === 'plan', 'plan', 'Routière')}${chip(o.base === 'sat', 'sat', 'Satellite')}</div>
+      <p class="h" style="font-size:16px;margin:12px 0 8px">Superposer</p>
+      <div class="chips" id="overs">${chip(o.bathy, 'bathy', 'Profondeurs (couleurs)')}${chip(o.seamarks, 'seamarks', 'Balises et ports')}</div>
+      <p class="small muted" style="margin:10px 0 0">Marine : carte des fonds (de loin) puis plan détaillé de près. Profondeurs : du rouge (peu profond) au vert puis au bleu (grand fond), en zoomant (EMODnet : Méditerranée et Atlantique nord-est). Balises et ports : OpenSeaMap.</p></div>`;
+    sheetHost.querySelectorAll('#bases .chip').forEach((c) => (c.onclick = () => { localStorage.setItem('mapBase', c.dataset.k); applyMapOpts(map); sheetHost.querySelectorAll('#bases .chip').forEach((x) => x.classList.toggle('on', x === c)); }));
+    sheetHost.querySelectorAll('#overs .chip').forEach((c) => (c.onclick = () => {
+      const k = c.dataset.k === 'bathy' ? 'mapBathy' : 'mapSea', cur = c.classList.contains('on');
+      localStorage.setItem(k, k === 'mapBathy' ? (cur ? '0' : '1') : (cur ? '0' : '1')); c.classList.toggle('on', !cur); applyMapOpts(map);
+    }));
   };
   let meMarker;
   $app.querySelector('#loc').onclick = async () => {
@@ -578,7 +594,7 @@ async function viewSpot(id) {
   if (!s) return notFound();
   const [{ data: catches }, { data: lures }] = await Promise.all([
     sb.from('catches').select('*').eq('spot_id', id).order('caught_at', { ascending: false }),
-    sb.from('lures').select('id, name').eq('crew_id', S.crew.id),
+    sb.from('lures').select('id, name'),
   ]);
   const lureName = Object.fromEntries((lures || []).map((l) => [l.id, l.name]));
   const count = (arr) => Object.entries(arr.reduce((m, k) => (k ? ((m[k] = (m[k] || 0) + 1), m) : m), {})).sort((a, b) => b[1] - a[1]);
@@ -589,7 +605,7 @@ async function viewSpot(id) {
   const mine = isMine(s);
   page(`<main class="screen">${topbar({ title: 'Fiche spot', back: true, right: mine ? `<a class="iconbtn" href="#/spot-edit/${s.id}" aria-label="Modifier">${icon('edit')}</a>` : '' })}
     ${s.photo_path && url(s.photo_path) ? `<img class="photo" src="${url(s.photo_path)}" alt="Capture sonar ou photo du spot">` : ''}
-    <div><div class="row between"><h2 class="h" style="font-size:24px">${esc(s.name)}</h2><span class="badge-vis">${icon(s.visibility === 'crew' ? 'users' : 'lock', 14)}${s.visibility === 'crew' ? 'Équipe' : 'Privé'}</span></div>
+    <div><div class="row between"><h2 class="h" style="font-size:24px">${esc(s.name)}</h2><span class="badge-vis">${icon(s.visibility !== 'private' ? 'users' : 'lock', 14)}${s.visibility !== 'private' ? 'Amis' : 'Privé'}</span></div>
       <div class="chips" style="margin-top:10px" id="cm">${['ddm', 'dms', 'dec'].map((m) => `<button class="chip ${S.coordMode === m ? 'on' : ''}" data-m="${m}">${{ ddm: 'DDM', dms: 'DMS', dec: 'Décimal' }[m]}</button>`).join('')}</div>
       <p id="coord" style="font-weight:700;font-size:16px;margin:10px 0 0">${fmtCoord(s.lat, s.lon, S.coordMode)}</p></div>
     <div class="card list" style="padding:4px 16px">
@@ -628,7 +644,7 @@ async function viewSpotForm(id) {
       <label class="f">Fond<select name="bottom"><option value="">—</option>${BOTTOMS.map((b) => `<option ${s.bottom === b ? 'selected' : ''}>${b}</option>`).join('')}</select></label>
       <fieldset style="border:none;padding:0;margin:0"><legend class="small muted" style="font-weight:600;margin-bottom:6px">Visibilité</legend><div class="chips" id="vis">
         <button type="button" class="chip ${s.visibility === 'private' ? 'on' : ''}" data-v="private">${icon('lock', 14)}Privé (moi seul)</button>
-        <button type="button" class="chip ${s.visibility === 'crew' ? 'on' : ''}" data-v="crew">${icon('users', 14)}Équipe</button></div></fieldset>
+        <button type="button" class="chip ${s.visibility !== 'private' ? 'on' : ''}" data-v="friends">${icon('users', 14)}Amis</button></div></fieldset>
       <label class="f">Notes<textarea name="notes" placeholder="Approche, dérive, marée…">${esc(s.notes || '')}</textarea></label>
       <div><p class="small muted" style="font-weight:600;margin:0 0 6px">Capture sonar ou photo</p><label class="drop" id="pd">${s.photo_path && url(s.photo_path) ? `<img src="${url(s.photo_path)}" alt="">` : `${icon('cam', 24)}<span>Ajouter une image</span>`}<input type="file" name="photo" accept="image/*" aria-label="Capture sonar ou photo"></label></div>
       <button class="btn sun" type="submit">${id ? 'Enregistrer' : 'Créer le spot'}</button>
@@ -647,7 +663,7 @@ async function viewSpotForm(id) {
     const c = check(); if (!c) return toast('Coordonnées invalides');
     const btn = f.querySelector('[type=submit]'); btn.disabled = true;
     try {
-      const row = { crew_id: S.crew.id, name: f.name.value.trim(), lat: c.lat, lon: c.lon, depth_min: f.dmin.value || null, depth_max: f.dmax.value || null, bottom: f.bottom.value || null, notes: f.notes.value.trim() || null, visibility: vis };
+      const row = { name: f.name.value.trim(), lat: c.lat, lon: c.lon, depth_min: f.dmin.value || null, depth_max: f.dmax.value || null, bottom: f.bottom.value || null, notes: f.notes.value.trim() || null, visibility: vis };
       if (photo) row.photo_path = await upload(await compressImage(photo), 'spots', 'jpg');
       const r = id ? await sb.from('spots').update(row).eq('id', id).select().single() : await sb.from('spots').insert(row).select().single();
       if (r.error) throw r.error;
@@ -686,11 +702,11 @@ function viewGPX() {
       <p class="small muted" style="margin:10px 0 0">Mets ensuite le fichier sur ton téléphone (AirDrop, WhatsApp, Fichiers) et choisis-le ci-dessous.</p></div>
     <label class="drop">${icon('upload', 26)}<span>Choisir un fichier .gpx, .kml ou .csv</span><input type="file" id="file" accept=".gpx,.kml,.csv,.txt,application/gpx+xml,application/xml,text/xml,text/csv"></label>
     <div id="res"></div>
-    <div class="card"><p style="margin:0 0 8px;font-weight:700">Exporter vers un appareil</p><p class="muted small" style="margin:0 0 12px">Tes spots et ceux de l’équipe, dans le format de ton choix. Pour le traceur : copie le fichier sur la carte SD puis importe-le depuis le menu de l’appareil.</p><button class="btn" id="exp">${icon('sd', 18)}Exporter tous les spots</button></div>
+    <div class="card"><p style="margin:0 0 8px;font-weight:700">Exporter vers un appareil</p><p class="muted small" style="margin:0 0 12px">Tes spots et ceux de tes amis, dans le format de ton choix. Pour le traceur : copie le fichier sur la carte SD puis importe-le depuis le menu de l’appareil.</p><button class="btn" id="exp">${icon('sd', 18)}Exporter tous les spots</button></div>
   </main>`, { tab: false });
   $app.querySelectorAll('#brands .chip').forEach((c) => (c.onclick = () => { $app.querySelectorAll('#brands .chip').forEach((x) => x.classList.toggle('on', x === c)); $app.querySelector('#howto').textContent = BRANDS[c.dataset.b]; }));
   $app.querySelector('#exp').onclick = async () => {
-    const { data } = await sb.from('spots').select('*').eq('crew_id', S.crew.id);
+    const { data } = await sb.from('spots').select('*');
     if (!data?.length) return toast('Aucun spot à exporter');
     exportSpots(data, `spartel-spots-${todayISO()}`);
   };
@@ -701,7 +717,7 @@ function viewGPX() {
     const res = $app.querySelector('#res');
     res.innerHTML = `${gpx.waypoints.length ? `<section class="card"><div class="row between"><b>${gpx.waypoints.length} point${gpx.waypoints.length > 1 ? 's' : ''}</b><button class="btn sm ghost" id="all">Tout cocher</button></div>
       <div class="list" style="max-height:320px;overflow:auto;margin:8px 0">${gpx.waypoints.map((w, i) => `<label class="list-item"><input type="checkbox" data-i="${i}" checked style="width:20px;height:20px"><div class="grow"><b>${esc(w.name)}</b><div class="small muted">${fmtCoord(w.lat, w.lon, S.coordMode)}${w.depth != null ? ` · ${num(w.depth, 0)} m` : ''}</div></div></label>`).join('')}</div>
-      <div class="chips" id="vis"><button type="button" class="chip on" data-v="private">${icon('lock', 14)}Privés</button><button type="button" class="chip" data-v="crew">${icon('users', 14)}Partagés à l’équipe</button></div>
+      <div class="chips" id="vis"><button type="button" class="chip on" data-v="private">${icon('lock', 14)}Privés</button><button type="button" class="chip" data-v="friends">${icon('users', 14)}Partagés avec mes amis</button></div>
       <button class="btn sun" id="imp" style="width:100%;margin-top:12px">Importer les spots</button></section>` : ''}
       ${gpx.tracks.map((t, i) => { const st = trackStats(t.points); return `<section class="card"><b>${esc(t.name)}</b><p class="small muted" style="margin:4px 0 12px">${t.points.length} points · ${st.distance_km} km${st.start ? ` · ${fmtDate(st.start)}` : ''}</p><button class="btn" data-trk="${i}" style="width:100%">${icon('boat', 18)}Créer une sortie avec ce track</button></section>`; }).join('')}
       ${!gpx.waypoints.length && !gpx.tracks.length ? '<p class="muted">Aucun point ni track dans ce fichier.</p>' : ''}`;
@@ -711,7 +727,7 @@ function viewGPX() {
     const imp = res.querySelector('#imp');
     if (imp) imp.onclick = async () => {
       const rows = [...res.querySelectorAll('[data-i]:checked')].map((b) => gpx.waypoints[+b.dataset.i]).map((w) => ({
-        crew_id: S.crew.id, name: String(w.name).slice(0, 60), lat: w.lat, lon: w.lon, notes: w.notes || null, depth_min: w.depth ?? null, visibility: vis, source: 'import',
+        name: String(w.name).slice(0, 60), lat: w.lat, lon: w.lon, notes: w.notes || null, depth_min: w.depth ?? null, visibility: vis, source: 'import',
       }));
       if (!rows.length) return toast('Rien de coché');
       imp.disabled = true;
@@ -721,7 +737,7 @@ function viewGPX() {
     res.querySelectorAll('[data-trk]').forEach((b) => (b.onclick = async () => {
       const t = gpx.tracks[+b.dataset.trk], st = trackStats(t.points);
       b.disabled = true;
-      const { data, error } = await sb.from('trips').insert({ crew_id: S.crew.id, trip_date: (st.start || new Date().toISOString()).slice(0, 10), title: t.name, members: [S.user.id], track: simplify(t.points), stats: st }).select().single();
+      const { data, error } = await sb.from('trips').insert({ trip_date: (st.start || new Date().toISOString()).slice(0, 10), title: t.name, members: [S.user.id], track: simplify(t.points), stats: st }).select().single();
       if (error) { b.disabled = false; return fail(error); }
       toast('Sortie créée'); go(`#/trip/${data.id}`);
     }));
@@ -761,15 +777,15 @@ async function viewCatchForm() {
   const q = qs();
   const since = new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10);
   const [{ data: lures }, { data: spots }, { data: trips }] = await Promise.all([
-    sb.from('lures').select('*').eq('crew_id', S.crew.id).order('created_at', { ascending: false }),
-    sb.from('spots').select('id, name, lat, lon, depth_min, visibility, owner_id').eq('crew_id', S.crew.id),
-    sb.from('trips').select('id, trip_date, title, members').eq('crew_id', S.crew.id).gte('trip_date', since).order('trip_date', { ascending: false }),
+    sb.from('lures').select('*').order('created_at', { ascending: false }),
+    sb.from('spots').select('id, name, lat, lon, depth_min, visibility, owner_id'),
+    sb.from('trips').select('id, trip_date, title, members').gte('trip_date', since).order('trip_date', { ascending: false }),
   ]);
   const myLures = (lures || []).sort((a, b) => (isMine(b) - isMine(a)));
   const todayTrip = (trips || []).find((t) => t.trip_date === todayISO());
   const tripId = q.trip || todayTrip?.id || '';
   const crewOrder = [S.user.id, ...S.memberIds.filter((x) => x !== S.user.id)];
-  const st = { angler: S.user.id, lure: '', pos: null, posSrc: '', spot: q.spot || '', photos: [], video: null, lurePhoto: null, released: false, vis: 'crew', photoMeta: null };
+  const st = { angler: S.user.id, lure: '', pos: null, posSrc: '', spot: q.spot || '', photos: [], video: null, lurePhoto: null, released: false, vis: 'friends', photoMeta: null };
   if (q.spot) { const s = (spots || []).find((x) => x.id === q.spot); if (s) { st.pos = { lat: s.lat, lon: s.lon }; st.posSrc = `Spot · ${s.name}`; } }
   const url = await signed(myLures.map((l) => l.photo_path));
 
@@ -853,7 +869,7 @@ async function viewCatchForm() {
   };
   $app.querySelector('#pSpot').onclick = () => {
     const list = [...(spots || [])].sort((a, b) => (st.pos ? haversine([a.lat, a.lon], [st.pos.lat, st.pos.lon]) - haversine([b.lat, b.lon], [st.pos.lat, st.pos.lon]) : a.name.localeCompare(b.name)));
-    const m = modal(`<p class="h" style="font-size:16px;margin-bottom:8px">Choisir un spot</p><div class="list">${list.map((s) => `<button type="button" class="list-item" data-s="${s.id}" style="width:100%;background:none;border:none;text-align:left">${icon(s.visibility === 'crew' ? 'users' : 'lock', 16)}<span class="grow"><b>${esc(s.name)}</b><br><span class="small muted">${fmtCoord(s.lat, s.lon, S.coordMode)}</span></span></button>`).join('') || '<p class="muted">Aucun spot. Crée-en un depuis la carte.</p>'}</div>`);
+    const m = modal(`<p class="h" style="font-size:16px;margin-bottom:8px">Choisir un spot</p><div class="list">${list.map((s) => `<button type="button" class="list-item" data-s="${s.id}" style="width:100%;background:none;border:none;text-align:left">${icon(s.visibility !== 'private' ? 'users' : 'lock', 16)}<span class="grow"><b>${esc(s.name)}</b><br><span class="small muted">${fmtCoord(s.lat, s.lon, S.coordMode)}</span></span></button>`).join('') || '<p class="muted">Aucun spot. Crée-en un depuis la carte.</p>'}</div>`);
     m.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => { const s = list.find((x) => x.id === b.dataset.s); setPos({ lat: s.lat, lon: s.lon }, `Spot · ${s.name}`, s.id); if (s.depth_min && !f.depth.value) f.depth.value = s.depth_min; m.remove(); }));
   };
   f.onsubmit = async (e) => {
@@ -861,13 +877,13 @@ async function viewCatchForm() {
     const btn = f.querySelector('[type=submit]'); btn.disabled = true; btn.textContent = 'Enregistrement…';
     try {
       const payload = {
-        crew_id: S.crew.id, angler_id: st.angler, species: f.species.value.trim(),
+        angler_id: st.angler, species: f.species.value.trim(),
         weight_kg: f.weight.value || null, length_cm: f.length.value || null, depth_m: f.depth.value || null,
         technique: f.technique.value || null, lure_id: st.lure && st.lure !== 'new' ? st.lure : null,
         lure_name: st.lure === 'new' ? (f.lureName.value.trim() || null) : null,
         lat: st.pos?.lat ?? null, lon: st.pos?.lon ?? null, spot_id: st.spot || null,
         caught_at: new Date(f.when.value).toISOString(), trip_id: f.trip.value || null,
-        released: f.released.checked, visibility: f.private.checked ? 'private' : 'crew', is_public: f.public.checked, notes: f.notes.value.trim() || null,
+        released: f.released.checked, visibility: f.private.checked ? 'private' : 'friends', is_public: f.public.checked, notes: f.notes.value.trim() || null,
       };
       const item = {
         id: uuid(), payload,
@@ -903,7 +919,7 @@ async function submitCatch(item) {
   if (item.video) p.video_path = await upload(item.video, 'videos', extOf(item.video, 'mp4'));
   if (item.lurePhoto) p.lure_photo_path = await upload(item.lurePhoto, 'lures', 'jpg');
   if (item.saveLure && p.lure_name) {
-    const { data: l, error } = await sb.from('lures').insert({ crew_id: p.crew_id, name: p.lure_name, photo_path: p.lure_photo_path || null }).select().single();
+    const { data: l, error } = await sb.from('lures').insert({ name: p.lure_name, photo_path: p.lure_photo_path || null }).select().single();
     if (!error) { p.lure_id = l.id; }
   }
   if (p.lat != null) p.conditions = await fetchConditions(p.lat, p.lon, p.caught_at);
@@ -914,7 +930,7 @@ async function submitCatch(item) {
 }
 let syncing = false;
 async function syncQueue(manual = false) {
-  if (syncing || !S.crew || !navigator.onLine) return;
+  if (syncing || !S.user || !navigator.onLine) return;
   syncing = true;
   try {
     const items = await queueAll();
@@ -955,7 +971,7 @@ async function viewCatch(id) {
       ['Taille', c.length_cm ? `${num(c.length_cm)} cm` : null], ['Profondeur', c.depth_m ? `${num(c.depth_m, 0)} m` : null], ['Technique', c.technique],
       ['Spot', spot ? `<a href="#/spot/${spot.id}">${esc(spot.name)}</a>` : null, true], ['Position', c.lat != null ? fmtCoord(c.lat, c.lon, S.coordMode) : null],
       ['Sortie', trip ? `<a href="#/trip/${trip.id}">${esc(fmtDate(trip.trip_date))}${trip.title ? ' · ' + esc(trip.title) : ''}</a>` : null, true],
-      ['Relâché', c.released ? 'Oui' : 'Non'], ['Visibilité', c.visibility === 'crew' ? 'Équipe' : 'Moi seul'],
+      ['Relâché', c.released ? 'Oui' : 'Non'], ['Visibilité', c.visibility !== 'private' ? 'Mes amis' : 'Moi seul'],
     ].filter((r) => r[1]).map(([x, y, raw]) => `<div class="list-item between"><span class="muted">${x}</span><b style="text-align:right">${raw ? y : esc(y)}</b></div>`).join('')}</div>
     ${lure || c.lure_name ? `<div class="card row">${lp && url(lp) ? `<img class="thumb" src="${url(lp)}" alt="Leurre">` : `<span class="thumb">${icon('lure')}</span>`}<div class="grow"><p class="small muted" style="margin:0">Leurre</p><b>${esc(lure?.name || c.lure_name)}</b>${lure ? `<div class="small muted">${esc([lure.lure_type, lure.weight_g ? lure.weight_g + ' g' : null, lure.color].filter(Boolean).join(' · '))}</div>` : ''}</div>${lure ? `<a class="iconbtn" href="#/lure/${lure.id}" aria-label="Voir le leurre">${icon('chev')}</a>` : ''}</div>` : ''}
     <section class="card"><p class="kicker" style="margin:0 0 10px">Conditions au moment de la prise</p><div class="stats">${cond.map(([ic, v, l]) => `<div class="stat">${icon(ic, 20)}<b>${v ?? '—'}</b><span>${esc(l)}</span></div>`).join('')}</div>${k.pressure_msl ? `<p class="small muted" style="margin:10px 0 0;text-align:center">Pression ${Math.round(k.pressure_msl)} hPa${k.wind_gusts_10m ? ` · rafales ${Math.round(k.wind_gusts_10m)} nds` : ''}${k.wave_period ? ` · période ${num(k.wave_period)} s` : ''}</p>` : ''}</section>
@@ -982,7 +998,7 @@ async function viewCatch(id) {
       toast(`${paths.length} photo${paths.length > 1 ? 's ajoutées' : ' ajoutée'}`); viewCatch(id);
     } catch (e) { fail(e); }
   };
-  $app.querySelector('#sh').onclick = () => shareOrCopy(`${nameOf(a)} — ${c.species}${c.weight_kg ? ' ' + kg(c.weight_kg) : ''}${spot && c.visibility === 'crew' ? ' · ' + spot.name : ''} · ${fmtDate(c.caught_at)}`);
+  $app.querySelector('#sh').onclick = () => shareOrCopy(`${nameOf(a)} — ${c.species}${c.weight_kg ? ' ' + kg(c.weight_kg) : ''}${spot && c.visibility !== 'private' ? ' · ' + spot.name : ''} · ${fmtDate(c.caught_at)}`);
   // Partage en image (Instagram…) : jamais de spot ni de position sur l'image.
   $app.querySelector('#shi').onclick = () => openShareCard({
     species: c.species, weight: c.weight_kg ? kg(c.weight_kg) : '', length: c.length_cm ? `${num(c.length_cm)} cm` : '',
@@ -1010,17 +1026,17 @@ async function viewCatch(id) {
 async function viewLures() {
   const q = qs(); const scope = q.scope || 'mine';
   const [{ data: lures }, { data: catches }] = await Promise.all([
-    sb.from('lures').select('*').eq('crew_id', S.crew.id).order('created_at', { ascending: false }),
-    sb.from('catches').select('lure_id, species').eq('crew_id', S.crew.id).not('lure_id', 'is', null),
+    sb.from('lures').select('*').order('created_at', { ascending: false }),
+    sb.from('catches').select('lure_id, species').not('lure_id', 'is', null),
   ]);
   const stats = {};
   (catches || []).forEach((c) => { const s = (stats[c.lure_id] ||= { n: 0, sp: {} }); s.n++; s.sp[c.species] = (s.sp[c.species] || 0) + 1; });
-  const list = (lures || []).filter((l) => scope === 'crew' || isMine(l)).sort((a, b) => (stats[b.id]?.n || 0) - (stats[a.id]?.n || 0));
+  const list = (lures || []).filter((l) => scope === 'friends' || isMine(l)).sort((a, b) => (stats[b.id]?.n || 0) - (stats[a.id]?.n || 0));
   const url = await signed(list.map((l) => l.photo_path));
   page(`<main class="screen">${topbar({ right: `<a class="btn sun sm" href="#/lure-new">${icon('cam', 16)}Ajouter</a>` })}
-    <h2 class="h" style="font-size:24px">${scope === 'crew' ? 'Leurres de l’équipe' : 'Ma boîte à leurres'}</h2>
-    <div class="chips"><a class="chip ${scope === 'mine' ? 'on' : ''}" href="#/lures?scope=mine">Ma boîte</a><a class="chip ${scope === 'crew' ? 'on' : ''}" href="#/lures?scope=crew">Équipe · classement</a></div>
-    ${list.length ? `<div class="grid2">${list.map((l) => { const s = stats[l.id]; const sp = s ? Object.entries(s.sp).sort((a, b) => b[1] - a[1]).slice(0, 2).map((x) => x[0]).join(', ') : ''; return `<a class="card" href="#/lure/${l.id}" style="padding:10px;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:6px">${l.photo_path && url(l.photo_path) ? `<img class="photo" style="aspect-ratio:1" loading="lazy" src="${url(l.photo_path)}" alt="${esc(l.name)}">` : `<span class="photo" style="aspect-ratio:1">${icon('lure', 30)}</span>`}<b class="ellipsis">${esc(l.name)}</b><span class="small muted ellipsis">${esc([l.lure_type, l.weight_g ? l.weight_g + ' g' : null, l.color].filter(Boolean).join(' · ') || ' ')}</span><span class="row between small" style="font-weight:600"><span style="color:var(--sun-dark)">${s?.n || 0} prise${(s?.n || 0) > 1 ? 's' : ''}</span>${scope === 'crew' && !isMine(l) ? `<span class="muted">${esc(nameOf(l.owner_id))}</span>` : `<span class="muted ellipsis">${esc(sp)}</span>`}</span></a>`; }).join('')}</div>`
+    <h2 class="h" style="font-size:24px">${scope === 'friends' ? 'Leurres de mes amis' : 'Ma boîte à leurres'}</h2>
+    <div class="chips"><a class="chip ${scope === 'mine' ? 'on' : ''}" href="#/lures?scope=mine">Ma boîte</a><a class="chip ${scope === 'friends' ? 'on' : ''}" href="#/lures?scope=friends">Amis · classement</a></div>
+    ${list.length ? `<div class="grid2">${list.map((l) => { const s = stats[l.id]; const sp = s ? Object.entries(s.sp).sort((a, b) => b[1] - a[1]).slice(0, 2).map((x) => x[0]).join(', ') : ''; return `<a class="card" href="#/lure/${l.id}" style="padding:10px;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:6px">${l.photo_path && url(l.photo_path) ? `<img class="photo" style="aspect-ratio:1" loading="lazy" src="${url(l.photo_path)}" alt="${esc(l.name)}">` : `<span class="photo" style="aspect-ratio:1">${icon('lure', 30)}</span>`}<b class="ellipsis">${esc(l.name)}</b><span class="small muted ellipsis">${esc([l.lure_type, l.weight_g ? l.weight_g + ' g' : null, l.color].filter(Boolean).join(' · ') || ' ')}</span><span class="row between small" style="font-weight:600"><span style="color:var(--sun-dark)">${s?.n || 0} prise${(s?.n || 0) > 1 ? 's' : ''}</span>${scope === 'friends' && !isMine(l) ? `<span class="muted">${esc(nameOf(l.owner_id))}</span>` : `<span class="muted ellipsis">${esc(sp)}</span>`}</span></a>`; }).join('')}</div>`
     : `<div class="empty card">${icon('lure', 34)}<p>Ta boîte est vide.<br>Ajoute tes leurres avec une photo pour savoir lesquels prennent.</p><a class="btn sun" href="#/lure-new">Ajouter un leurre</a></div>`}
   </main>`, { tab: 'lures' });
 }
@@ -1053,7 +1069,7 @@ async function viewLureForm(id) {
   f.onsubmit = async (e) => {
     e.preventDefault(); const btn = f.querySelector('[type=submit]'); btn.disabled = true;
     try {
-      const row = { crew_id: S.crew.id, name: f.name.value.trim(), brand: f.brand.value.trim() || null, lure_type: f.type.value || null, weight_g: f.weight.value || null, color: f.color.value.trim() || null };
+      const row = { name: f.name.value.trim(), brand: f.brand.value.trim() || null, lure_type: f.type.value || null, weight_g: f.weight.value || null, color: f.color.value.trim() || null };
       if (photo) row.photo_path = await upload(await compressImage(photo, 1000), 'lures', 'jpg');
       const r = id ? await sb.from('lures').update(row).eq('id', id) : await sb.from('lures').insert(row);
       if (r.error) throw r.error;
@@ -1067,8 +1083,8 @@ async function viewLureForm(id) {
 /* ---------------- Sorties ---------------- */
 async function viewTrips() {
   const [{ data: trips }, { data: cs }] = await Promise.all([
-    sb.from('trips').select('*').eq('crew_id', S.crew.id).order('trip_date', { ascending: false }).limit(100),
-    sb.from('catches').select('trip_id').eq('crew_id', S.crew.id).not('trip_id', 'is', null),
+    sb.from('trips').select('*').order('trip_date', { ascending: false }).limit(100),
+    sb.from('catches').select('trip_id').not('trip_id', 'is', null),
   ]);
   const n = {}; (cs || []).forEach((c) => (n[c.trip_id] = (n[c.trip_id] || 0) + 1));
   page(`<main class="screen">${topbar({ title: 'Sorties', back: true, right: `<a class="btn sun sm" href="#/trip-new">${icon('plus', 16)}Sortie</a>` })}
@@ -1086,7 +1102,7 @@ async function viewTripForm(id) {
       <label class="f">Date<input name="date" type="date" required value="${t.trip_date}"></label>
       <label class="f">Titre<input name="title" maxlength="60" value="${esc(t.title || '')}" placeholder="Sortie jig au cap"></label>
       <label class="f">Bateau<input name="boat" maxlength="40" value="${esc(t.boat_name || '')}" placeholder="Nom du bateau"></label>
-      <div><p class="small muted" style="font-weight:600;margin:0 0 8px">Équipage à bord</p><div class="chips wrap" id="mem">${S.memberIds.map((m) => `<button type="button" class="chip ${members.has(m) ? 'on' : ''}" data-m="${m}" aria-pressed="${members.has(m)}">${esc(nameOf(m))}</button>`).join('')}</div></div>
+      <div><p class="small muted" style="font-weight:600;margin:0 0 8px">Qui est à bord</p><div class="chips wrap" id="mem">${S.memberIds.map((m) => `<button type="button" class="chip ${members.has(m) ? 'on' : ''}" data-m="${m}" aria-pressed="${members.has(m)}">${esc(nameOf(m))}</button>`).join('')}</div></div>
       <label class="drop" style="min-height:80px">${icon('sd', 22)}<span id="gl">${t.track ? 'Remplacer le track (GPX)' : 'Track du Solix (GPX) — facultatif'}</span><input type="file" name="gpx" accept=".gpx,application/gpx+xml,application/xml,text/xml"></label>
       <label class="f">Notes<textarea name="notes">${esc(t.notes || '')}</textarea></label>
       <button class="btn sun" type="submit">${id ? 'Enregistrer' : 'Créer la sortie'}</button>
@@ -1099,7 +1115,7 @@ async function viewTripForm(id) {
   };
   f.onsubmit = async (e) => {
     e.preventDefault(); const btn = f.querySelector('[type=submit]'); btn.disabled = true;
-    const row = { crew_id: S.crew.id, trip_date: f.date.value, title: f.title.value.trim() || null, boat_name: f.boat.value.trim() || null, members: [...members], notes: f.notes.value.trim() || null };
+    const row = { trip_date: f.date.value, title: f.title.value.trim() || null, boat_name: f.boat.value.trim() || null, members: [...members], notes: f.notes.value.trim() || null };
     if (track) { row.track = simplify(track); row.stats = trackStats(track); }
     const r = id ? await sb.from('trips').update(row).eq('id', id).select().single() : await sb.from('trips').insert(row).select().single();
     if (r.error) { btn.disabled = false; return fail(r.error); }
@@ -1231,7 +1247,7 @@ function wireGallery(root) {
 }
 
 /* ---------------- Prévisions & meilleures heures ---------------- */
-/* Lieux météo : spots de l'équipage + lieux de pêche du Maroc */
+/* Lieux météo : spots (à moi et mes amis) + lieux de pêche du Maroc */
 function placeOptions(spots) {
   const regions = [...new Set(PLACES.map((p) => p.region))];
   return ((spots || []).length ? `<optgroup label="Mes spots">${spots.map((s) => `<option value="s:${s.id}">${esc(s.name)}</option>`).join('')}</optgroup>` : '')
@@ -1247,7 +1263,7 @@ function resolvePlace(val, spots) {
 
 async function viewForecast() {
   const q = qs();
-  const { data: spots } = await sb.from('spots').select('id, name, lat, lon').eq('crew_id', S.crew.id).order('name');
+  const { data: spots } = await sb.from('spots').select('id, name, lat, lon').order('name');
   let cur = q.spot ? 's:' + q.spot : q.place ? 'p:' + q.place : (S.profile?.fav_place || 'p:cap-spartel');
   let loc = resolvePlace(cur, spots);
   if (!loc) { loc = HOME_POS; cur = 'p:cap-spartel'; }
@@ -1310,9 +1326,9 @@ function hourChart(d) {
 async function viewStats() {
   const q = qs();
   const [{ data: cs }, { data: lures }, { data: spots }] = await Promise.all([
-    sb.from('catches').select('*').eq('crew_id', S.crew.id).order('caught_at', { ascending: false }).limit(2000),
-    sb.from('lures').select('id, name').eq('crew_id', S.crew.id),
-    sb.from('spots').select('id, name').eq('crew_id', S.crew.id),
+    sb.from('catches').select('*').order('caught_at', { ascending: false }).limit(2000),
+    sb.from('lures').select('id, name'),
+    sb.from('spots').select('id, name'),
   ]);
   const all = cs || [];
   const species = Object.entries(all.reduce((m, c) => ((m[c.species] = (m[c.species] || 0) + 1), m), {})).sort((a, b) => b[1] - a[1]);
@@ -1332,7 +1348,7 @@ async function viewStats() {
   page(`<main class="screen">${topbar({ title: 'Stats', back: true })}
     <div class="chips"><a class="chip ${!sel ? 'on' : ''}" href="#/stats">Toutes</a>${species.map(([s, n]) => `<a class="chip ${sel === s ? 'on' : ''}" href="#/stats?sp=${encodeURIComponent(s)}">${esc(s)} · ${n}</a>`).join('')}</div>
     ${list.length ? `
-    <p class="kicker" style="margin:0">${sel ? `Profil · ${esc(sel)}` : 'Toute l’équipe'} · ${list.length} prise${list.length > 1 ? 's' : ''}</p>
+    <p class="kicker" style="margin:0">${sel ? `Profil · ${esc(sel)}` : 'Moi et mes amis'} · ${list.length} prise${list.length > 1 ? 's' : ''}</p>
     <div class="grid2">
       ${card('Plus grosse', best ? `${kg(best.weight_kg)} · ${esc(nameOf(best.angler_id || best.created_by))}` : null)}
       ${card('Meilleur leurre', esc(top(list.map((c) => lureName[c.lure_id] || c.lure_name))[0]?.[0]))}
@@ -1347,49 +1363,47 @@ async function viewStats() {
     </div>
     <section class="card"><p class="kicker" style="margin:0 0 10px">Par mois</p><div class="months">${months.map((n, i) => `<div><span style="height:${Math.round((n / mmax) * 70)}px" title="${n}"></span><small>${'JFMAMJJASOND'[i]}</small></div>`).join('')}</div></section>
     ${!sel ? `<section class="card"><p class="kicker" style="margin:0 0 6px">Espèces</p><div class="list">${species.slice(0, 10).map(([s, n]) => `<a class="list-item" href="#/stats?sp=${encodeURIComponent(s)}"><span class="grow"><b>${esc(s)}</b></span><span class="muted">${n}</span>${icon('chev', 18)}</a>`).join('')}</div></section>` : ''}
-    <p class="small muted" style="margin:0">Les plages « qui marchent » couvrent 60 % des prises enregistrées avec leurs conditions. Plus l’équipe note de prises, plus ces profils deviennent précis.</p>`
+    <p class="small muted" style="margin:0">Les plages « qui marchent » couvrent 60 % des prises enregistrées avec leurs conditions. Plus vous êtes de pêcheurs à noter vos prises, plus ces profils deviennent précis.</p>`
     : `<div class="empty card">${icon('chart', 34)}<p>Pas encore de prise. Les stats se remplissent toutes seules à chaque poisson noté.</p></div>`}
   </main>`, { tab: 'home' });
 }
 
-/* ---------------- Équipe ---------------- */
-async function viewCrew() {
-  const [{ data: cs }, { count: spotCount }, { data: mySpots }] = await Promise.all([
-    sb.from('catches').select('angler_id, created_by, species, weight_kg').eq('crew_id', S.crew.id),
-    sb.from('spots').select('id', { count: 'exact', head: true }).eq('crew_id', S.crew.id).eq('visibility', 'crew'),
-    sb.from('spots').select('id, name, lat, lon').eq('crew_id', S.crew.id).order('name'),
+/* ---------------- Mon profil ---------------- */
+async function viewMe() {
+  const [{ data: mySpots }, { data: mine }, ps] = await Promise.all([
+    sb.from('spots').select('id, name, lat, lon').eq('owner_id', S.user.id).order('name'),
+    sb.from('catches').select('id').or(`angler_id.eq.${S.user.id},created_by.eq.${S.user.id}`),
+    pushStatus(),
   ]);
-  const by = {};
-  S.memberIds.forEach((m) => (by[m] = { n: 0, best: null }));
-  (cs || []).forEach((c) => { const a = c.angler_id || c.created_by; const o = (by[a] ||= { n: 0, best: null }); o.n++; if (c.weight_kg && (!o.best || +c.weight_kg > +o.best.weight_kg)) o.best = c; });
-  const ranking = Object.entries(by).sort((a, b) => b[1].n - a[1].n);
-  const link = `${location.origin}${location.pathname}?join=${S.crew.invite_code}`;
-  page(`<main class="screen">${topbar({ right: `<button class="iconbtn" id="lo" aria-label="Se déconnecter">${icon('logout')}</button>` })}
-    <section class="card dark row" style="gap:14px"><img src="icons/badge.svg" alt="" width="96" height="96"><div><h2 class="h" style="font-size:20px">${esc(S.crew.name)}</h2><p class="small muted" style="margin:4px 0 0">${S.memberIds.length} pêcheur${S.memberIds.length > 1 ? 's' : ''} · ${spotCount || 0} spots en commun · ${(cs || []).length} prises</p></div></section>
-    ${S.crews.length > 1 ? `<div class="chips">${S.crews.map((c) => `<button class="chip ${c.id === S.crew.id ? 'on' : ''}" data-crew="${c.id}">${esc(c.name)}</button>`).join('')}</div>` : ''}
-    <p class="kicker" style="margin:0">Classement</p>
-    <div class="card list" style="padding:0 16px">${ranking.map(([id, o], i) => `<a class="list-item" href="#/u/${id}">${avatar(id, `lg ${i === 0 ? 'sun' : ''}`)}<div class="grow"><b>${esc(nameOf(id))}</b>${id === S.user.id ? ' <span class="small muted">(toi)</span>' : ''}<div class="small muted ellipsis">${esc(S.members[id]?.bio || (S.members[id]?.role === 'owner' ? 'Capitaine' : ''))}</div></div><div style="text-align:right"><b>${o.n} prise${o.n > 1 ? 's' : ''}</b>${o.best ? `<div class="small" style="color:var(--sun-dark);font-weight:600">${esc(o.best.species)} ${kg(o.best.weight_kg)}</div>` : ''}</div></a>`).join('')}</div>
-    <section class="card"><p class="kicker" style="margin:0 0 8px">Inviter un ami</p><p class="muted small" style="margin:0 0 10px">Envoie le lien : il crée son compte et rejoint directement l’équipage.</p>
-      <div class="row between" style="background:var(--sand);border-radius:12px;padding:10px 14px"><span class="h" style="font-size:22px;letter-spacing:.2em">${esc(S.crew.invite_code)}</span><button class="btn sm" id="inv">${icon('share', 16)}Envoyer le lien</button></div></section>
-    <a class="btn ghost" href="#/trips">${icon('boat', 18)}Toutes les sorties</a>
+  const nF = Math.max(S.memberIds.length - 1, 0);
+  const pushCard = ps === 'unsupported' ? ''
+    : `<section class="card"><p class="kicker" style="margin:0 0 6px">Notifications</p>${
+      ps === 'need-install' ? '<p class="muted small" style="margin:0">Sur iPhone, installe d’abord Spartel sur l’écran d’accueil (Partager → Sur l’écran d’accueil), puis rouvre l’appli pour activer les notifications.</p>'
+      : ps === 'denied' ? '<p class="muted small" style="margin:0">Les notifications sont bloquées. Autorise-les pour Spartel dans les réglages de ton téléphone.</p>'
+      : ps === 'on' ? `<p class="okline" style="margin:0 0 10px">${icon('check', 16, 3)} Activées sur cet appareil</p><button class="btn ghost sm" id="pushoff">Désactiver</button>`
+      : '<p class="muted small" style="margin:0 0 10px">Reçois une alerte quand un ami te demande en ami ou publie une sortie avec des places.</p><button class="btn sun" id="pushon">Activer les notifications</button>'}</section>`;
+  page(`<main class="screen">${topbar({ title: 'Mon profil', back: true, right: `<button class="iconbtn" id="lo" aria-label="Se déconnecter">${icon('logout')}</button>` })}
+    <section class="card dark row" style="gap:14px"><span class="avatar sun lg" style="width:64px;height:64px;font-size:28px">${esc(initials(S.profile?.display_name))}</span><div><h2 class="h" style="font-size:20px;margin:0">${esc(S.profile?.display_name || '')}</h2><p class="small muted" style="margin:4px 0 0">${(mine || []).length} prise${(mine || []).length > 1 ? 's' : ''} · ${nF} ami${nF > 1 ? 's' : ''}</p></div></section>
+    ${pushCard}
+    ${installCard()}
+    <section class="card"><p class="kicker" style="margin:0 0 8px">Mes infos</p><form id="pf"><label class="f">Prénom<input name="name" required maxlength="40" value="${esc(S.profile?.display_name || '')}"></label><label class="f">Ma pêche (ex. Slow jig &amp; traîne)<input name="bio" maxlength="60" value="${esc(S.profile?.bio || '')}"></label><label class="f">Port d’attache<input name="port" maxlength="60" value="${esc(S.profile?.home_port || '')}" placeholder="Tanger"></label><label class="f">Ma base préférée (accueil, météo, carte)<select name="fav">${placeOptions(mySpots)}</select></label><button class="btn">Enregistrer</button></form><a class="btn ghost sm" style="margin-top:10px;width:100%" href="#/u/${S.user.id}">Voir mon profil public</a></section>
+    <a class="btn ghost" href="#/friends">${icon('users', 18)}Mes amis</a>
+    <a class="btn ghost" href="#/trips">${icon('boat', 18)}Carnet de sorties</a>
     <a class="btn ghost" href="#/gpx">${icon('sd', 18)}Import / export (Humminbird, Garmin, Lowrance, Raymarine)</a>
-    <a class="btn ghost" href="#/stats">${icon('chart', 18)}Stats de l’équipe</a>
-    <section class="card"><p class="kicker" style="margin:0 0 8px">Mon profil</p><form id="pf"><label class="f">Prénom<input name="name" required maxlength="40" value="${esc(S.profile?.display_name || '')}"></label><label class="f">Ma pêche (ex. Slow jig &amp; traîne)<input name="bio" maxlength="60" value="${esc(S.profile?.bio || '')}"></label><label class="f">Port d’attache<input name="port" maxlength="60" value="${esc(S.profile?.home_port || '')}" placeholder="Tanger"></label><label class="f">Spot favori (météo de l’accueil)<select name="fav">${placeOptions(mySpots)}</select></label><button class="btn">Enregistrer</button></form><a class="btn ghost sm" style="margin-top:10px;width:100%" href="#/u/${S.user.id}">Voir mon profil public</a></section>
     <a class="btn ghost" href="#/captain">${icon('boat', 18)}Espace capitaine</a>
     ${S.profile?.is_admin ? `<a class="btn ghost" href="#/access">${icon('users', 18)}Demandes d’accès à Spartel</a>` : ''}
-    <button class="btn dashed" id="newcrew">Rejoindre ou créer un autre équipage</button>
-  </main>`, { tab: 'crew' });
-  $app.querySelector('#inv').onclick = () => shareOrCopy(`Rejoins ${S.crew.name} sur Spartel\n${link}\nCode : ${S.crew.invite_code}`, 'Spartel');
+  </main>`, { tab: null });
+  installInit($app);
   $app.querySelector('#lo').onclick = async () => { if (await confirmBox('Se déconnecter ?', 'Déconnexion')) sb.auth.signOut(); };
-  $app.querySelector('#newcrew').onclick = () => viewOnboarding();
-  $app.querySelectorAll('[data-crew]').forEach((b) => (b.onclick = async () => { localStorage.setItem('crewId', b.dataset.crew); await loadCrew(); viewCrew(); }));
   { const f = $app.querySelector('#pf').fav; f.value = S.profile?.fav_place || 'p:cap-spartel'; if (!f.value) f.value = 'p:cap-spartel'; }
   $app.querySelector('#pf').onsubmit = async (e) => {
     e.preventDefault();
     const { error } = await sb.from('profiles').update({ display_name: e.target.name.value.trim(), bio: e.target.bio.value.trim(), home_port: e.target.port.value.trim() || null, fav_place: e.target.fav.value || null }).eq('id', S.user.id);
     if (error) return fail(error);
-    await loadProfile(); await loadMembers(); toast('Profil enregistré'); viewCrew();
+    await loadProfile(); await loadFriends(); toast('Profil enregistré'); viewMe();
   };
+  const on = $app.querySelector('#pushon'); if (on) on.onclick = async () => { try { await enablePush(sb, S.user.id); toast('Notifications activées'); viewMe(); } catch (e) { fail(e); } };
+  const off = $app.querySelector('#pushoff'); if (off) off.onclick = async () => { await disablePush(sb); toast('Notifications désactivées'); viewMe(); };
 }
 
 /* ---------------- Demandes d'accès (admin) ---------------- */
@@ -1413,7 +1427,7 @@ async function viewAccess() {
         : r.status === 'rejected' ? `<button class="btn ghost sm" data-ok="${r.id}">Accepter finalement</button>` : ''}</div>
     </section>`).join('') : `<div class="empty card">${icon('users', 30)}<p>${tab === 'pending' ? 'Aucune demande en attente.' : 'Rien ici.'}</p></div>`}
     <p class="small muted" style="margin:0">Les gens demandent l’accès depuis le site. Quand tu acceptes, ton app e-mail s’ouvre avec le lien d’inscription prêt à envoyer.</p>
-  </main>`, { tab: 'crew' });
+  </main>`, { tab: 'friends' });
   const byId = Object.fromEntries(all.map((r) => [r.id, r]));
   const set = async (id, status) => { const { error } = await sb.from('access_requests').update({ status, approved_at: status === 'approved' ? new Date().toISOString() : null }).eq('id', id); if (error) throw error; };
   $app.querySelectorAll('[data-ok]').forEach((b) => (b.onclick = async () => { try { await set(b.dataset.ok, 'approved'); sendInvite(byId[b.dataset.ok]); } catch (e) { fail(e); } }));
@@ -1438,26 +1452,28 @@ function notFound() {
 }
 
 /* ---------------- Routeur ---------------- */
+const F = friendsModule({ sb, S, page, topbar, icon, esc, fmtDate, toast, fail, go, confirmBox, shareOrCopy, nameOf, avatar, kg, loadFriends });
 const M = market({ sb, S, page, topbar, icon, esc, num, kg, fmtDate, fmtTime, toast, fail, go, modal, confirmBox, signed, shareOrCopy, qs, localDT, uuid, compressImage, notFound, SPECIES, TECHNIQUES, initials });
 const routes = [
   [/^#?\/?$/, viewHome], [/^#\/map/, viewMap], [/^#\/spot-new/, () => viewSpotForm()], [/^#\/spot-edit\/(.+)/, viewSpotForm], [/^#\/spot\/(.+)/, viewSpot],
   [/^#\/gpx/, viewGPX], [/^#\/catch-new/, viewCatchForm], [/^#\/catch\/(.+)/, viewCatch],
   [/^#\/lures/, viewLures], [/^#\/lure-new/, () => viewLureForm()], [/^#\/lure\/(.+)/, viewLureForm],
   [/^#\/trips/, viewTrips], [/^#\/trip-new/, () => viewTripForm()], [/^#\/trip-edit\/(.+)/, viewTripForm], [/^#\/trip\/(.+)/, viewTrip],
-  [/^#\/crew/, viewCrew], [/^#\/reset/, viewReset], [/^#\/forecast/, viewForecast], [/^#\/stats/, viewStats],
+  [/^#\/(?:crew|me)$/, viewMe], ...F.routes, [/^#\/reset/, viewReset], [/^#\/forecast/, viewForecast], [/^#\/stats/, viewStats],
   ...M.routes, [/^#\/access/, viewAccess],
 ];
 async function route() {
-  if (!S.user) return viewAuth(location.hash.startsWith('#/signup') || localStorage.getItem('pendingInvite') ? 'signup' : 'login');
+  if (!S.user) {
+    const h0 = location.hash;
+    if (h0.startsWith('#/signup')) return viewAuth('signup');
+    if (h0.startsWith('#/login')) return viewAuth('login');
+    if (localStorage.getItem('pendingInvite')) return viewAuth('signup');
+    if (localStorage.getItem('pendingFriend') || new URLSearchParams(location.search).has('install')) return viewWelcome();
+    return viewAuth('login');
+  }
   if (location.hash.startsWith('#/signup')) history.replaceState(null, '', '#/');
   if (location.hash.startsWith('#/reset')) return viewReset();
   const h = location.hash.split('?')[0] || '#/';
-  if (!S.crew) {
-    const mr = [...M.routes, [/^#\/access/, viewAccess]].find(([re]) => re.test(h));
-    if (!mr) return viewOnboarding();
-    try { await mr[1](h.match(mr[0])[1]); } catch (e) { fail(e); }
-    return;
-  }
   for (const [re, fn] of routes) {
     const m = h.match(re);
     if (m) { try { await fn(m[1]); } catch (e) { fail(e); } return; }
@@ -1467,22 +1483,22 @@ async function route() {
 
 async function boot() {
   const sp = new URLSearchParams(location.search);
-  const join = sp.get('join'), invite = sp.get('invite');
+  const join = sp.get('join'), invite = sp.get('invite'), fcode = sp.get('f');
   if (join) localStorage.setItem('pendingJoin', join.toUpperCase());
+  if (fcode && /^[0-9a-z]{4,16}$/i.test(fcode)) localStorage.setItem('pendingFriend', fcode.toUpperCase());
   if (invite && /^[0-9a-f-]{36}$/i.test(invite)) localStorage.setItem('pendingInvite', invite.toLowerCase());
-  if (join || invite) history.replaceState(null, '', location.pathname + (location.hash || '') || location.pathname);
+  if (join || invite || fcode) history.replaceState(null, '', location.pathname + (location.hash || '') || location.pathname);
   const { data: { session } } = await sb.auth.getSession();
   S.user = session?.user || null;
   if (S.user) {
     localStorage.removeItem('pendingInvite');
+    localStorage.removeItem('pendingJoin');
     await loadProfile();
-    const pj = localStorage.getItem('pendingJoin');
-    if (pj) {
-      const { data, error } = await sb.rpc('join_crew', { code: pj });
-      if (!error) { localStorage.setItem('crewId', data.id); toast(`Bienvenue dans ${data.name}`); }
-      localStorage.removeItem('pendingJoin');
-    }
-    await loadCrew();
+    const pf = localStorage.getItem('pendingFriend');
+    if (pf) { await F.acceptFriendLink(pf); localStorage.removeItem('pendingFriend'); }
+    await loadFriends();
+    F.refreshUnread();
+    syncPush(sb, S.user.id);
     syncQueue();
   }
   route();
@@ -1490,6 +1506,7 @@ async function boot() {
 
 window.addEventListener('hashchange', route);
 window.addEventListener('online', () => syncQueue());
+document.addEventListener('visibilitychange', () => { if (!document.hidden && S.user) F.refreshUnread(); });
 let lastUser = undefined;
 sb.auth.onAuthStateChange((evt, session) => {
   const id = session?.user?.id || null;

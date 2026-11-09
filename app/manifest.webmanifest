@@ -1,8 +1,9 @@
 {
   "name": "Spartel",
   "short_name": "Spartel",
-  "description": "Spots, prises, leurres et sorties de pêche en mer de l'équipage Spartel.",
+  "description": "Spots, prises, leurres et sorties de pêche en mer entre amis.",
   "lang": "fr",
+  "id": "/app/",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

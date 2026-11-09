@@ -1,8 +1,8 @@
 // Service worker : garde l'appli disponible hors ligne (en mer sans réseau).
-const VERSION = 'spartel-v10';
+const VERSION = 'spartel-v11';
 const SHELL = [
   './', './index.html', './css/app.css', './manifest.webmanifest',
-  './js/app.js', './js/geo.js', './js/forecast.js', './js/market.js', './js/share.js', './js/media.js', './js/offline.js', './js/config.js',
+  './js/app.js', './js/geo.js', './js/forecast.js', './js/market.js', './js/share.js', './js/media.js', './js/offline.js', './js/config.js', './js/friends.js', './js/install.js', './js/push.js',
   './icons/symbol.svg', './icons/badge.svg', './icons/wordmark.svg', './icons/icon-192.png', './icons/favicon.png',
 ];
 
@@ -14,7 +14,7 @@ self.addEventListener('activate', (e) => {
 });
 
 const CDN = ['unpkg.com', 'esm.sh', 'fonts.googleapis.com', 'fonts.gstatic.com', 'cdn.jsdelivr.net'];
-const TILES = ['tile.openstreetmap.org', 'tiles.openseamap.org'];
+const TILES = ['tile.openstreetmap.org', 'tiles.openseamap.org', 'server.arcgisonline.com', 'ows.emodnet-bathymetry.eu'];
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
@@ -38,4 +38,21 @@ self.addEventListener('fetch', (e) => {
       caches.open('spartel-tiles').then((c) => c.match(req).then((hit) => hit || fetch(req).then((res) => { if (res.ok || res.type === 'opaque') c.put(req, res.clone()); return res; })))
     );
   }
+});
+
+// Notifications push
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (err) { d = { title: 'Spartel', body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Spartel', {
+    body: d.body || '', icon: './icons/icon-192.png', badge: './icons/favicon.png', tag: d.tag || undefined, data: { url: d.url || '#/' },
+  }));
+});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const target = new URL(e.notification.data?.url || '#/', self.registration.scope).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    for (const c of list) { if (c.url.startsWith(self.registration.scope)) { c.focus(); return c.navigate(target); } }
+    return self.clients.openWindow(target);
+  }));
 });

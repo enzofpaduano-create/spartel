@@ -75,7 +75,7 @@ export function market(ctx) {
     const price = o.price_cents ? `${money(o.price_cents, o.currency)}<span class="small muted"> / ${o.price_unit === 'boat' ? 'bateau' : 'pers.'}</span>` : '<span style="color:var(--navy)">Entre amis</span>';
     return `<a class="card ocard" href="#/outing/${o.id}">
       <div class="ophoto">${ph ? `<img src="${esc(ph)}" alt="" loading="lazy">` : `<span>${icon('boat', 38, 1.6)}</span>`}
-        ${o.visibility === 'crew' ? `<span class="otag">${icon('users', 12)}Équipage</span>` : ''}${n > 1 ? `<span class="otag" style="left:auto;right:10px">${icon('cam', 12)}${n}</span>` : ''}${o.status === 'cancelled' ? '<span class="otag" style="background:var(--danger)">Annulée</span>' : ''}</div>
+        ${o.visibility !== 'public' ? `<span class="otag">${icon('users', 12)}Amis</span>` : ''}${n > 1 ? `<span class="otag" style="left:auto;right:10px">${icon('cam', 12)}${n}</span>` : ''}${o.status === 'cancelled' ? '<span class="otag" style="background:var(--danger)">Annulée</span>' : ''}</div>
       <div style="padding:12px 14px 14px;display:flex;flex-direction:column;gap:6px">
         <div class="row between"><span class="kicker">${esc(fmtDate(o.start_at, { weekday: 'short', day: 'numeric', month: 'short' }))} · ${fmtTime(o.start_at)}</span><span class="small muted">${esc(countryName(o.country))}</span></div>
         <b class="h" style="font-size:17px;line-height:1.15">${esc(o.title)}</b>
@@ -98,7 +98,7 @@ export function market(ctx) {
       sb.from('bookings').select('id', { count: 'exact', head: true }).eq('host_id', S.user.id).eq('status', 'requested'),
     ]);
     const all = list || [];
-    const shown = all.filter((o) => f === 'all' || (f === 'crew' ? o.visibility === 'crew' : f === 'mine' ? o.host_id === S.user.id : f === 'other' ? !['MA', 'ES'].includes(o.country) : o.country === f));
+    const shown = all.filter((o) => f === 'all' || (f === 'friends' ? o.visibility !== 'public' : f === 'mine' ? o.host_id === S.user.id : f === 'other' ? !['MA', 'ES'].includes(o.country) : o.country === f));
     await loadPeople(shown.map((o) => o.host_id));
     const seats = await seatsMap(shown.map((o) => o.id));
     const card = await cardEnabled();
@@ -107,7 +107,7 @@ export function market(ctx) {
       <section class="card dark"><p class="kicker" style="color:var(--sun)">Sorties en mer</p><h1 class="h" style="font-size:22px;margin-top:4px">Réserve ta place à bord</h1>
         <p class="small muted" style="margin:6px 0 0">Sorties entre amis ou avec un capitaine. ${card ? 'Au Maroc tu paies le capitaine directement, ailleurs par carte sur Spartel.' : 'Tu réserves ici et tu paies le capitaine directement : espèces, virement ou acompte.'}</p></section>
       <div class="btn-row"><a class="btn ghost sm" href="#/bookings">${icon('clock', 16)}Mes réservations</a><a class="btn ghost sm" href="#/captain" style="position:relative">${icon('boat', 16)}Espace capitaine${pending ? `<span class="dotn">${pending}</span>` : ''}</a></div>
-      <nav class="chips" aria-label="Filtrer">${chip('all', 'Toutes')}${chip('MA', 'Maroc')}${chip('ES', 'Espagne')}${chip('other', 'Ailleurs')}${chip('crew', 'Mon équipage')}${chip('mine', 'Les miennes')}</nav>
+      <nav class="chips" aria-label="Filtrer">${chip('all', 'Toutes')}${chip('MA', 'Maroc')}${chip('ES', 'Espagne')}${chip('other', 'Ailleurs')}${chip('friends', 'Mes amis')}${chip('mine', 'Les miennes')}</nav>
       <section class="ogrid">${shown.length ? shown.map((o) => outingCard(o, seats[o.id])).join('') : `<div class="empty card" style="grid-column:1/-1">${icon('boat', 34)}<p>Aucune sortie ouverte pour l’instant.<br>Propose la première : sortie entre amis ou sortie pro.</p><a class="btn sun sm" href="#/outing-new">Proposer une sortie</a></div>`}</section>
     </main>`, { tab: 'outings' });
   }
@@ -144,7 +144,7 @@ export function market(ctx) {
     ].filter((r) => r[2]);
     page(`<main class="screen">${topbar({ title: 'Sortie', back: true, right: `<button class="iconbtn" id="sh" aria-label="Partager">${icon('share')}</button>` })}
       ${pics.length ? `<div class="gallery" id="gal">${pics.map((u, i) => `<img src="${esc(u)}" alt="Photo ${i + 1} du bateau" ${i ? 'loading="lazy"' : ''}>`).join('')}</div>${pics.length > 1 ? `<div class="gdots" aria-hidden="true">${pics.map((_, i) => `<span class="${i ? '' : 'on'}"></span>`).join('')}</div>` : ''}` : ''}
-      <div><p class="kicker" style="margin:0">${o.visibility === 'crew' ? 'Sortie d’équipage · ' : ''}${esc(countryName(o.country))}${o.status === 'cancelled' ? ' · <span style="color:var(--danger)">Annulée</span>' : ''}</p><h2 class="h" style="font-size:24px;margin-top:4px">${esc(o.title)}</h2></div>
+      <div><p class="kicker" style="margin:0">${o.visibility !== 'public' ? 'Sortie entre amis · ' : ''}${esc(countryName(o.country))}${o.status === 'cancelled' ? ' · <span style="color:var(--danger)">Annulée</span>' : ''}</p><h2 class="h" style="font-size:24px;margin-top:4px">${esc(o.title)}</h2></div>
       <a class="card row" href="#/u/${o.host_id}" style="text-decoration:none;color:inherit">${pav(o.host_id, 'lg sun')}<div class="grow"><b>${esc(people[o.host_id]?.display_name || 'Capitaine')}</b><div class="small muted">${cap?.boat_name ? `Capitaine · ${esc(cap.boat_name)}` : 'Organisateur'}${prof?.catches?.length ? ` · ${prof.catches.length} prise${prof.catches.length > 1 ? 's' : ''} publiée${prof.catches.length > 1 ? 's' : ''}` : ''}${prof?.outings_done ? ` · ${prof.outings_done} sortie${prof.outings_done > 1 ? 's' : ''} réalisée${prof.outings_done > 1 ? 's' : ''}` : ''}</div></div>${icon('chev')}</a>
       <div class="card list" style="padding:2px 16px">${info.map(([ic, k, v]) => `<div class="list-item"><span style="color:var(--sun)">${icon(ic, 18)}</span><span class="muted" style="width:76px">${k}</span><b class="grow" style="text-align:right">${esc(v)}</b></div>`).join('')}</div>
       ${o.species?.length ? `<div class="chips wrap">${o.species.map((s) => `<span class="chip">${esc(s)}</span>`).join('')}</div>` : ''}
@@ -215,7 +215,7 @@ export function market(ctx) {
         <label class="f">Titre<input name="title" required minlength="3" maxlength="80" value="${esc(o.title || '')}" placeholder="Jigging au large du Cap Spartel"></label>
         <div><p class="small muted" style="font-weight:600;margin:0 0 8px">Pour qui ?</p><div class="chips" id="vis">
           <button type="button" class="chip ${o.visibility === 'public' ? 'on' : ''}" data-v="public">${icon('users', 14)}Tout Spartel</button>
-          <button type="button" class="chip ${o.visibility === 'crew' ? 'on' : ''}" data-v="crew">${icon('lock', 14)}Mon équipage seulement</button></div></div>
+          <button type="button" class="chip ${o.visibility !== 'public' ? 'on' : ''}" data-v="friends">${icon('lock', 14)}Mes amis seulement</button></div></div>
         <div class="row"><label class="f">Pays<select name="country">${COUNTRIES.map(([c, n]) => `<option value="${c}" ${o.country === c ? 'selected' : ''}>${n}</option>`).join('')}</select></label><label class="f">Port de départ<input name="port" required maxlength="60" value="${esc(o.port || '')}" placeholder="Marina de Tanger"></label></div>
         <div class="row"><label class="f">Départ<input name="start" type="datetime-local" required value="${start}"></label><label class="f" style="flex:.6">Durée (h)<input name="dur" type="number" min="1" max="72" step="0.5" required value="${o.duration_h}"></label></div>
         <div class="row"><label class="f">Places<input name="seats" type="number" min="1" max="30" required value="${o.seats_total}"></label><label class="f">Bateau<input name="boat" maxlength="40" value="${esc(o.boat_name || '')}" placeholder="Nom du bateau"></label></div>
@@ -261,7 +261,7 @@ export function market(ctx) {
       const cn = $app.querySelector('#cardnote');
       cn.innerHTML = !off && paid ? `${icon('lock', 14)} Paiement par carte sur Spartel. ${cap?.stripe_ready ? 'Tes paiements sont actifs.' : cap?.country === 'MA' ? 'Pour encaisser hors du Maroc, indique ce pays dans ton <a href="#/captain">profil capitaine</a> puis active Stripe.' : 'Active-les dans l’<a href="#/captain">espace capitaine</a> pour encaisser.'}` : '';
       const pn = $app.querySelector('#pubnote');
-      pn.innerHTML = st.vis === 'crew' ? 'Seuls les membres de ton équipage la verront.' : 'Visible par tous les membres de Spartel.';
+      pn.innerHTML = st.vis === 'friends' ? 'Seuls tes amis la verront, et chacun reçoit une notification si des places sont disponibles.' : 'Visible par tous les membres de Spartel. Tes amis reçoivent une notification.';
       $app.querySelector('#phreq').textContent = paid ? '(au moins une)' : '(facultatif)';
       f.desc.required = paid;
     };
@@ -278,9 +278,8 @@ export function market(ctx) {
           pay_cash: off ? f.cash.checked : false, pay_transfer: off ? f.transfer.checked : false, deposit_pct: off && price ? Math.min(100, Math.max(0, +f.deposit.value || 0)) : 0,
           species: [...$app.querySelectorAll('#sp .chip.on')].map((c) => c.dataset.s), technique: f.technique.value || null,
           includes: f.includes.value.trim() || null, description: f.desc.value.trim() || null,
-          visibility: st.vis, crew_id: S.crew?.id || null,
+          visibility: st.vis,
         };
-        if (row.visibility === 'crew' && !row.crew_id) throw new Error('Rejoins d’abord un équipage');
         if (new Date(row.start_at) < new Date()) throw new Error('La date de départ est passée');
         if (price && st.photos.length + st.files.length === 0) throw new Error('Ajoute au moins une photo de ton bateau');
         if (price && !row.description) throw new Error('Ajoute une description de la sortie');
@@ -554,8 +553,8 @@ export function market(ctx) {
       ${cs.length ? `<section class="cgrid">${cs.map((c) => `<article class="card" style="padding:0;overflow:hidden">${c.photo_path && url(c.photo_path) ? `<img src="${url(c.photo_path)}" alt="${esc(c.species)}" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover">` : `<div style="aspect-ratio:1;display:grid;place-items:center;background:var(--ocean);color:var(--navy)">${icon('trophy', 30, 1.6)}</div>`}
         <div style="padding:10px 12px"><div class="row between"><b style="font-size:14px">${esc(c.species)}</b><b style="color:var(--sun-dark);font-size:14px">${c.weight_kg ? kg(c.weight_kg) : ''}</b></div><div class="small muted ellipsis">${esc([fmtDate(c.caught_at, { day: 'numeric', month: 'short', year: 'numeric' }), c.lure_name, c.released ? 'relâché' : null].filter(Boolean).join(' · '))}</div></div></article>`).join('')}</section>`
         : `<div class="empty card">${icon('trophy', 30)}<p>${me ? 'Aucune prise publique. Ouvre une prise et active « Afficher sur mon profil public ».' : 'Pas encore de prise publique.'}</p></div>`}
-      ${me ? '<a class="btn ghost" href="#/crew">Modifier mon profil</a>' : ''}
-    </main>`, { tab: me ? 'crew' : 'outings' });
+      ${me ? '<a class="btn ghost" href="#/me">Modifier mon profil</a>' : ''}
+    </main>`, { tab: me ? null : "outings" });
     $app.querySelector('#sh').onclick = () => shareOrCopy(`${p.display_name} sur Spartel\n${location.origin}${location.pathname}#/u/${uid}`, 'Spartel');
   }
 

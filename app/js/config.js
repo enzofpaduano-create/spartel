@@ -51,3 +51,5 @@ export const PLACES = [
   { id: 'boujdour', region: 'Sud Atlantique', name: 'Boujdour', lat: 26.12, lon: -14.56 },
   { id: 'dakhla', region: 'Sud Atlantique', name: 'Dakhla', lat: 23.68, lon: -15.98 },
 ];
+
+export const VAPID_PUBLIC = 'BOZOdphnBI97L8jRJ8-eEebvIdaZ1qpyGIpSgcT-hts_FmX2vXmWdUk6RADwdE6WR6qWjh0Ym1UFOy2V7FRdOLQ';
