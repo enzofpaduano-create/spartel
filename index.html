@@ -49,19 +49,19 @@ header.top img{height:30px}
 .tabs a{display:flex;align-items:center;gap:6px;height:52px;font:600 12px var(--b);letter-spacing:.1em;text-transform:uppercase;text-decoration:none;color:var(--muted);border-top:1px solid transparent;margin-top:-1px}
 .tabs a.on{color:var(--navy);border-top-color:var(--navy)}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
-.post{border:none;padding:0;cursor:pointer;aspect-ratio:1;position:relative;overflow:hidden;font:inherit;color:inherit}
+.post{border:none;padding:0;cursor:pointer;aspect-ratio:1;position:relative;overflow:hidden;font:inherit;color:inherit;container-type:inline-size}
 .post .tile{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6%;padding:10%;text-align:center;transition:transform .35s}
 .post:hover .tile{transform:scale(1.04)}
 .post::after{content:"";position:absolute;inset:0;background:rgba(11,31,51,0);transition:background .2s}
 .post:hover::after{background:rgba(11,31,51,.12)}
 .post.navy{background:var(--navy);color:var(--sand)}.post.sand{background:var(--sand);color:var(--navy)}.post.sun{background:var(--sun);color:#fff}.post.white{background:#fff;color:var(--navy);outline:1px solid var(--line);outline-offset:-1px}
 .tile p{margin:0}
-.t-xl{font:800 clamp(16px,3.6vw,34px)/1.05 var(--h);font-stretch:125%}
-.t-lg{font:800 clamp(14px,3vw,28px)/1.08 var(--h);font-stretch:125%}
-.t-md{font:800 clamp(12px,2.2vw,20px)/1.1 var(--h);font-stretch:125%}
-.t-sm{font:700 clamp(10px,1.6vw,15px) var(--b);letter-spacing:.12em}
-.t-xs{font:500 clamp(9px,1.4vw,13px) var(--b);opacity:.8}
-.kick{font:700 clamp(8px,1.3vw,12px) var(--b);letter-spacing:.16em;color:var(--sun)}
+.t-xl{font:800 9.4cqw/1.05 var(--h);font-stretch:125%}
+.t-lg{font:800 7.6cqw/1.08 var(--h);font-stretch:125%}
+.t-md{font:800 6.4cqw/1.1 var(--h);font-stretch:125%}
+.t-sm{font:700 max(9px,4.6cqw) var(--b);letter-spacing:.12em}
+.t-xs{font:500 max(9px,4.2cqw) var(--b);opacity:.8}
+.kick{font:700 max(8px,3.8cqw) var(--b);letter-spacing:.16em;color:var(--sun)}
 .post.sun .kick{color:var(--navy)}
 .tile .wm{width:72%}
 .art{display:flex;align-items:center;justify-content:center;width:72%;height:52%;flex:0 1 auto;min-height:0}
