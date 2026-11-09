@@ -367,7 +367,7 @@ async function viewHome() {
     return `<article class="card" style="padding:14px">
       <a href="#/catch/${c.id}" style="text-decoration:none;color:inherit;display:block">
       <div class="row">${avatar(a)}<div class="grow"><div style="font-weight:700">${esc(nameOf(a))}</div><div class="small muted ellipsis">${esc([fmtDate(c.caught_at), spotName[c.spot_id], c.depth_m != null ? `${num(c.depth_m, 0)} m` : null].filter(Boolean).join(' · '))}</div></div></div>
-      ${c.photo_path && url(c.photo_path) ? `<img class="photo" style="margin-top:12px" loading="lazy" src="${url(c.photo_path)}" alt="${esc(c.species)}">` : ''}
+      ${c.photo_path && url(c.photo_path) ? `<div class="gal" style="margin-top:12px"><img class="photo" loading="lazy" src="${url(c.photo_path)}" alt="${esc(c.species)}">${c.photo_paths?.length ? `<span class="gal-count">${icon('cam', 12)} ${1 + c.photo_paths.length}</span>` : ''}</div>` : ''}
       <div class="row between" style="margin-top:12px"><span class="h" style="font-size:18px">${esc(c.species)}</span><b style="color:var(--sun-dark);font-size:18px">${kg(c.weight_kg)}</b></div>
       ${lure || c.lure_name ? `<div class="row" style="margin-top:10px;padding:8px;background:var(--sand);border-radius:12px">${lp && url(lp) ? `<img class="thumb" src="${url(lp)}" alt="">` : `<span class="thumb">${icon('lure')}</span>`}<div><div style="font-weight:600;font-size:14px">${esc(lure?.name || c.lure_name)}</div><div class="small muted">${esc([c.technique, c.released ? 'relâché' : null].filter(Boolean).join(' · '))}</div></div></div>` : ''}
       </a>
@@ -769,15 +769,16 @@ async function viewCatchForm() {
   const todayTrip = (trips || []).find((t) => t.trip_date === todayISO());
   const tripId = q.trip || todayTrip?.id || '';
   const crewOrder = [S.user.id, ...S.memberIds.filter((x) => x !== S.user.id)];
-  const st = { angler: S.user.id, lure: '', pos: null, posSrc: '', spot: q.spot || '', photo: null, video: null, lurePhoto: null, released: false, vis: 'crew', photoMeta: null };
+  const st = { angler: S.user.id, lure: '', pos: null, posSrc: '', spot: q.spot || '', photos: [], video: null, lurePhoto: null, released: false, vis: 'crew', photoMeta: null };
   if (q.spot) { const s = (spots || []).find((x) => x.id === q.spot); if (s) { st.pos = { lat: s.lat, lon: s.lon }; st.posSrc = `Spot · ${s.name}`; } }
   const url = await signed(myLures.map((l) => l.photo_path));
 
   page(`<main class="screen">${topbar({ title: 'Nouvelle prise', back: true })}
     <form id="f">
-      <div class="row" style="align-items:stretch"><label class="drop" style="flex:2" id="pd">${icon('cam', 26)}<span>Photo du poisson</span><input type="file" name="photo" accept="image/*" aria-label="Photo du poisson"></label>
+      <div class="row" style="align-items:stretch"><label class="drop" style="flex:2" id="pd">${icon('cam', 26)}<span>Photos du poisson</span><input type="file" name="photo" accept="image/*" multiple aria-label="Photos du poisson"></label>
         <label class="drop" style="flex:1" id="vd">${icon('video', 22)}<span>Vidéo</span><input type="file" name="video" accept="video/*" aria-label="Vidéo"></label></div>
-      <p class="hint" style="margin:-6px 0 0">Les coordonnées GPS cachées dans la photo sont retirées avant l’envoi.</p>
+      <div class="pstrip" id="pstrip" hidden></div>
+      <p class="hint" style="margin:-6px 0 0">Plusieurs photos possibles (8 max). Touche une miniature pour en faire la photo principale. Les coordonnées GPS cachées dans les photos sont retirées avant l’envoi.</p>
       <div><p class="small muted" style="font-weight:600;margin:0 0 8px">Qui l’a sorti ?</p><div class="chips wrap" id="ang">${crewOrder.map((id) => `<button type="button" class="chip ${id === st.angler ? 'on' : ''}" data-a="${id}">${esc(nameOf(id))}</button>`).join('')}</div></div>
       <label class="f">Espèce<input name="species" list="sp" required placeholder="Denti, loup, pagre…" autocomplete="off"><datalist id="sp">${SPECIES.map((s) => `<option value="${esc(s)}">`).join('')}</datalist></label>
       <div class="row"><label class="f">Poids (kg)<input name="weight" type="number" inputmode="decimal" step="0.01" min="0"></label><label class="f">Taille (cm)<input name="length" type="number" inputmode="decimal" step="0.5" min="0"></label><label class="f">Profondeur (m)<input name="depth" type="number" inputmode="decimal" step="1" min="0"></label></div>
@@ -810,13 +811,33 @@ async function viewCatchForm() {
     const l = myLures.find((x) => x.id === st.lure);
     if (l && l.lure_type && !f.technique.value) { const map = { Jig: 'Jig', 'Slow jig': 'Slow jig', Madaï: 'Madaï / tenya', Stickbait: 'Surface (popper, stickbait)', Popper: 'Surface (popper, stickbait)', 'Poisson nageur': 'Poisson nageur', 'Leurre souple': 'Leurre souple', Turlutte: 'Turlutte' }; if (map[l.lure_type]) f.technique.value = map[l.lure_type]; }
   }));
+  const paintPhotos = () => {
+    const drop = $app.querySelector('#pd'), strip = $app.querySelector('#pstrip');
+    drop.querySelectorAll('img, .pcount').forEach((n) => n.remove());
+    if (st.photos.length) {
+      drop.insertAdjacentHTML('afterbegin', `<img src="${URL.createObjectURL(st.photos[0])}" alt="">${st.photos.length > 1 ? `<span class="pcount">${st.photos.length} photos</span>` : ''}`);
+    }
+    strip.hidden = st.photos.length < 2;
+    strip.innerHTML = st.photos.map((p, i) => `<div class="pth ${i === 0 ? 'cover' : ''}"><button type="button" class="pimg" data-i="${i}" aria-label="Photo ${i + 1}${i === 0 ? ' (principale)' : ''}"><img src="${URL.createObjectURL(p)}" alt=""></button><button type="button" class="prm" data-r="${i}" aria-label="Retirer la photo ${i + 1}">✕</button></div>`).join('');
+    strip.querySelectorAll('.pimg').forEach((b) => (b.onclick = () => { const i = +b.dataset.i; if (i) { st.photos.unshift(...st.photos.splice(i, 1)); paintPhotos(); } }));
+    strip.querySelectorAll('.prm').forEach((b) => (b.onclick = () => { st.photos.splice(+b.dataset.r, 1); paintPhotos(); }));
+  };
   f.photo.onchange = async () => {
-    st.photo = f.photo.files[0]; if (!st.photo) return;
-    $app.querySelector('#pd').insertAdjacentHTML('afterbegin', `<img src="${URL.createObjectURL(st.photo)}" alt="">`);
-    st.photoMeta = await readPhotoMeta(st.photo);
+    const files = [...f.photo.files]; f.photo.value = '';
+    if (!files.length) return;
+    const room = 8 - st.photos.length;
+    if (files.length > room) toast(room > 0 ? `8 photos maximum : ${room} ajoutée${room > 1 ? 's' : ''}` : '8 photos maximum', 3500);
+    const added = files.slice(0, Math.max(0, room)); if (!added.length) return;
+    const first = !st.photos.length;
+    st.photos.push(...added); paintPhotos();
+    // GPS et heure : lus sur la première photo qui les contient
+    for (const ph of added) {
+      const m = await readPhotoMeta(ph);
+      if (!st.photoMeta || (st.photoMeta.lat == null && m.lat != null)) st.photoMeta = m;
+    }
     const pp = $app.querySelector('#pPhoto');
-    if (st.photoMeta.lat != null) { pp.disabled = false; if (!st.pos) setPos({ lat: st.photoMeta.lat, lon: st.photoMeta.lon }, 'Photo'); }
-    if (st.photoMeta.takenAt) f.when.value = localDT(st.photoMeta.takenAt);
+    if (st.photoMeta?.lat != null) { pp.disabled = false; if (!st.pos) setPos({ lat: st.photoMeta.lat, lon: st.photoMeta.lon }, 'Photo'); }
+    if (first && st.photoMeta?.takenAt) f.when.value = localDT(st.photoMeta.takenAt);
   };
   f.video.onchange = () => {
     const v = f.video.files[0]; if (!v) return;
@@ -850,7 +871,7 @@ async function viewCatchForm() {
       };
       const item = {
         id: uuid(), payload,
-        photo: st.photo ? await compressImage(st.photo) : null,
+        photos: await Promise.all(st.photos.map((p) => compressImage(p))),
         video: st.video || null,
         lurePhoto: st.lure === 'new' && st.lurePhoto ? await compressImage(st.lurePhoto, 1000) : null,
         saveLure: st.lure === 'new' && f.lureSave.checked && !!payload.lure_name,
@@ -875,7 +896,10 @@ const isNetworkError = (e) => e instanceof TypeError || /fetch|network|Failed to
 
 async function submitCatch(item) {
   const p = { ...item.payload };
-  if (item.photo) p.photo_path = await upload(item.photo, 'catches', 'jpg');
+  const photos = item.photos || (item.photo ? [item.photo] : []); // item.photo : anciennes prises en attente
+  const paths = [];
+  for (const ph of photos) paths.push(await upload(ph, 'catches', 'jpg'));
+  if (paths.length) { p.photo_path = paths[0]; p.photo_paths = paths.slice(1); }
   if (item.video) p.video_path = await upload(item.video, 'videos', extOf(item.video, 'mp4'));
   if (item.lurePhoto) p.lure_photo_path = await upload(item.lurePhoto, 'lures', 'jpg');
   if (item.saveLure && p.lure_name) {
@@ -911,7 +935,7 @@ async function viewCatch(id) {
     c.lure_id ? sb.from('lures').select('*').eq('id', c.lure_id).maybeSingle() : { data: null },
     c.trip_id ? sb.from('trips').select('id, trip_date, title').eq('id', c.trip_id).maybeSingle() : { data: null },
   ]);
-  const url = await signed([c.photo_path, c.video_path, c.lure_photo_path, lure?.photo_path]);
+  const url = await signed([...catchPhotos(c), c.video_path, c.lure_photo_path, lure?.photo_path]);
   const k = c.conditions || {};
   const a = c.angler_id || c.created_by;
   const lp = c.lure_photo_path || lure?.photo_path;
@@ -922,7 +946,7 @@ async function viewCatch(id) {
     ['moon', k.moon ? `${k.moon.illumination} %` : null, k.moon?.label || 'Lune'],
   ];
   page(`<main class="screen">${topbar({ title: 'Prise', back: true, right: `<button class="iconbtn" id="sh" aria-label="Partager">${icon('share')}</button>` })}
-    ${c.photo_path && url(c.photo_path) ? `<img class="photo" src="${url(c.photo_path)}" alt="${esc(c.species)}">` : ''}
+    ${galleryHtml(catchPhotos(c), url, c.species)}
     ${c.video_path && url(c.video_path) ? `<video class="photo" src="${url(c.video_path)}" controls playsinline preload="metadata"></video>` : ''}
     <div class="row between"><h2 class="h" style="font-size:24px">${esc(c.species)}</h2><b style="color:var(--sun-dark);font-size:22px">${kg(c.weight_kg)}</b></div>
     <a class="row" href="#/u/${a}" style="text-decoration:none;color:inherit">${avatar(a)}<div><b>${esc(nameOf(a))}</b><div class="small muted">${fmtDate(c.caught_at, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · ${fmtTime(c.caught_at)}${c.created_by !== a ? ` · saisi par ${esc(nameOf(c.created_by))}` : ''}</div></div></a>
@@ -939,8 +963,25 @@ async function viewCatch(id) {
     <section class="card" id="comments"><p class="kicker" style="margin:0 0 10px">Commentaires</p><div id="cmtList" class="cmts"><p class="muted" style="margin:0">…</p></div>
       <div class="cmt-form"><input id="cmtIn" maxlength="500" placeholder="Écrire un commentaire…" autocomplete="off" aria-label="Commentaire"><button class="btn sun sm" id="cmtSend">Envoyer</button></div></section>
     ${c.created_by === S.user.id || c.angler_id === S.user.id ? `<label class="switch card" style="padding:10px 16px">Afficher sur ${a === S.user.id ? 'mon' : 'son'} profil public<input type="checkbox" id="pub" ${c.is_public ? 'checked' : ''}></label>` : ''}
+    ${c.created_by === S.user.id || c.angler_id === S.user.id ? `<label class="btn ghost" style="position:relative;cursor:pointer">${icon('cam', 18)}Ajouter des photos<input type="file" id="morePh" accept="image/*" multiple style="position:absolute;inset:0;opacity:0;cursor:pointer" aria-label="Ajouter des photos"></label>` : ''}
     ${c.created_by === S.user.id ? '<button class="btn danger" id="del">Supprimer cette prise</button>' : ''}
   </main>`, { tab: 'home' });
+  wireGallery($app);
+  const mp = $app.querySelector('#morePh');
+  if (mp) mp.onchange = async () => {
+    const files = [...mp.files]; mp.value = ''; if (!files.length) return;
+    const room = 8 - catchPhotos(c).length;
+    if (room <= 0) return toast('8 photos maximum');
+    try {
+      toast('Envoi des photos…');
+      const paths = [];
+      for (const f of files.slice(0, room)) paths.push(await upload(await compressImage(f), 'catches', 'jpg'));
+      const upd = c.photo_path ? { photo_paths: [...(c.photo_paths || []), ...paths] } : { photo_path: paths[0], photo_paths: paths.slice(1) };
+      const { error } = await sb.from('catches').update(upd).eq('id', id);
+      if (error) throw error;
+      toast(`${paths.length} photo${paths.length > 1 ? 's ajoutées' : ' ajoutée'}`); viewCatch(id);
+    } catch (e) { fail(e); }
+  };
   $app.querySelector('#sh').onclick = () => shareOrCopy(`${nameOf(a)} — ${c.species}${c.weight_kg ? ' ' + kg(c.weight_kg) : ''}${spot && c.visibility === 'crew' ? ' · ' + spot.name : ''} · ${fmtDate(c.caught_at)}`);
   // Partage en image (Instagram…) : jamais de spot ni de position sur l'image.
   $app.querySelector('#shi').onclick = () => openShareCard({
@@ -1172,6 +1213,21 @@ function recorder(t) {
   };
   const obs = new MutationObserver(() => { if (!document.body.contains(m)) { stopWatch(); obs.disconnect(); } });
   obs.observe(document.body, { childList: true });
+}
+
+/* Galerie de photos d'une prise : photo principale + photos supplémentaires */
+const catchPhotos = (c) => [c.photo_path, ...(c.photo_paths || [])].filter(Boolean);
+function galleryHtml(paths, url, alt) {
+  const ok = paths.filter((p) => url(p));
+  if (!ok.length) return '';
+  if (ok.length === 1) return `<img class="photo" src="${url(ok[0])}" alt="${esc(alt)}">`;
+  return `<div class="gal"><div class="gal-track">${ok.map((p, i) => `<img class="photo" src="${url(p)}" alt="${esc(alt)} ${i + 1}" ${i ? 'loading="lazy"' : ''}>`).join('')}</div><span class="gal-count">1/${ok.length}</span></div>`;
+}
+function wireGallery(root) {
+  root.querySelectorAll('.gal-track').forEach((tr) => {
+    const n = tr.parentElement.querySelector('.gal-count'), tot = tr.children.length;
+    tr.addEventListener('scroll', () => { n.textContent = `${Math.min(tot, Math.round(tr.scrollLeft / tr.clientWidth) + 1)}/${tot}`; }, { passive: true });
+  });
 }
 
 /* ---------------- Prévisions & meilleures heures ---------------- */
