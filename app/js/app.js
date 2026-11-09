@@ -3,6 +3,7 @@ import { SUPABASE_URL, SUPABASE_KEY, HOME_POS } from './config.js';
 import { fmtCoord, parseCoords, parseGPX, buildGPX, buildKML, buildCSV, parseAny, bearing, trackStats, simplify, fetchConditions, fetchCurrent, windDir, moonPhase, haversine } from './geo.js';
 import { readPhotoMeta, compressImage, MAX_VIDEO_MB } from './media.js';
 import { queueAdd, queueAll, queueDelete } from './offline.js';
+import { market } from './market.js';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 const $app = document.getElementById('app');
@@ -104,7 +105,7 @@ const extOf = (file, def) => (file?.name?.split('.').pop() || def).toLowerCase()
 /* ---------------- Mise en page ---------------- */
 function tabbar(active) {
   const t = (h, ic, label, key) => `<a href="${h}" class="${active === key ? 'on' : ''}" ${active === key ? 'aria-current="page"' : ''}>${icon(ic)}<span>${label}</span></a>`;
-  return `<nav class="tabbar" aria-label="Navigation principale">${t('#/', 'home', 'Accueil', 'home')}${t('#/map', 'map', 'Carte', 'map')}<a href="#/catch-new" class="fab" aria-label="Nouvelle prise">${icon('plus', 28, 2.6)}</a>${t('#/lures', 'lure', 'Leurres', 'lures')}${t('#/crew', 'crew', 'Équipe', 'crew')}</nav>`;
+  return `<nav class="tabbar" aria-label="Navigation principale">${t('#/', 'home', 'Accueil', 'home')}${t('#/map', 'map', 'Carte', 'map')}<a href="#/catch-new" class="fab" aria-label="Nouvelle prise">${icon('plus', 28, 2.6)}</a>${t('#/outings', 'boat', 'Sorties', 'outings')}${t('#/crew', 'crew', 'Équipe', 'crew')}</nav>`;
 }
 function topbar({ title = '', back = false, right = '' } = {}) {
   const left = back
@@ -248,6 +249,7 @@ function viewOnboarding() {
       <form id="jf"><label class="f">Code d’invitation<input name="code" required maxlength="10" value="${esc(code)}" style="text-transform:uppercase;letter-spacing:.2em" autocomplete="off"></label><button class="btn sun">Rejoindre</button></form></div>
     <div class="card"><h2 class="h" style="font-size:18px">Créer un équipage</h2>
       <form id="cf"><label class="f">Nom<input name="name" required maxlength="40" value="Spartel Crew"></label><button class="btn">Créer</button></form></div>
+    <a class="btn ghost" href="#/outings">${icon('boat', 18)}Juste réserver une sortie en mer</a>
     <button class="btn ghost sm" id="lo">Se déconnecter</button>
   </main>`, { tab: false });
   $app.querySelector('#jf').onsubmit = async (e) => {
@@ -276,7 +278,8 @@ async function viewHome() {
     ${topbar({ right: `<a href="#/crew" aria-label="Mon profil"><span class="avatar sun lg">${esc(initials(S.profile?.display_name))}</span></a>` })}
     ${pending.length ? `<div class="banner"><span>${pending.length} prise${pending.length > 1 ? 's' : ''} en attente de réseau</span><button class="btn sm" id="sync" style="background:var(--navy)">Envoyer</button></div>` : ''}
     ${showInstall ? `<div class="card install"><div class="row between"><b>Installer Spartel sur l’iPhone</b><button class="iconbtn" id="hideInstall" aria-label="Masquer">✕</button></div><p class="muted" style="margin:6px 0 0">Dans Safari : bouton <b>Partager</b> ${icon('share', 16)} puis <b>Sur l’écran d’accueil</b>.</p></div>` : ''}
-    <nav class="shortcuts" aria-label="Raccourcis">${[['#/forecast', 'sun', 'Prévisions'], ['#/trips', 'boat', 'Sorties'], ['#/stats', 'chart', 'Stats'], ['#/gpx', 'sd', 'Import / Export']].map(([h, i, l]) => `<a href="${h}">${icon(i, 22)}<span>${l}</span></a>`).join('')}</nav>
+    <nav class="shortcuts" aria-label="Raccourcis">${[['#/forecast', 'sun', 'Prévisions'], ['#/lures', 'lure', 'Leurres'], ['#/trips', 'clock', 'Carnet de sorties'], ['#/stats', 'chart', 'Stats'], ['#/gpx', 'sd', 'Import / Export'], [`#/u/${S.user.id}`, 'users', 'Mon profil public']].map(([h, i, l]) => `<a href="${h}">${icon(i, 22)}<span>${l}</span></a>`).join('')}</nav>
+    <section id="homeOut" style="display:flex;flex-direction:column;gap:10px"></section>
     <section class="card" id="next"><p class="kicker">Prochaine sortie</p><p class="muted">Chargement…</p></section>
     <section class="card"><div class="row between"><p class="kicker">Conditions · ${esc(HOME_POS.name)}</p><span class="small muted">maintenant</span></div><div class="stats" id="cond" style="margin-top:10px"><p class="muted">…</p></div></section>
     <section id="board" class="card"><div class="row">${icon('trophy', 20)}<h2 class="h" style="font-size:14px">Plus gros du mois</h2></div><div class="list" id="boardList" style="margin-top:6px"><p class="muted">…</p></div></section>
@@ -285,6 +288,7 @@ async function viewHome() {
   </main>`, { tab: 'home' });
   const hi = $app.querySelector('#hideInstall'); if (hi) hi.onclick = () => { localStorage.setItem('hideInstall', '1'); hi.closest('.card').remove(); };
   const sy = $app.querySelector('#sync'); if (sy) sy.onclick = () => syncQueue(true);
+  M.homeOutings($app.querySelector('#homeOut')).catch(() => {});
 
   // Prochaine sortie
   sb.from('trips').select('*').eq('crew_id', S.crew.id).gte('trip_date', todayISO()).order('trip_date').limit(1).then(({ data }) => {
@@ -678,6 +682,8 @@ async function viewCatchForm() {
       <label class="f">Sortie<select name="trip"><option value="">Aucune</option>${(trips || []).map((t) => `<option value="${t.id}" ${t.id === tripId ? 'selected' : ''}>${esc(fmtDate(t.trip_date))}${t.title ? ' · ' + esc(t.title) : ''}</option>`).join('')}</select></label>
       <label class="switch">Relâché<input type="checkbox" name="released"></label>
       <label class="switch">Visible seulement par moi<input type="checkbox" name="private"></label>
+      <label class="switch">Afficher sur mon profil public<input type="checkbox" name="public"></label>
+      <p class="hint" style="margin:-8px 0 0">Profil public : photo, espèce, poids et leurre. Jamais le spot ni les coordonnées.</p>
       <label class="f">Notes<textarea name="notes" placeholder="Dérive, touche, combat…"></textarea></label>
       <button class="btn sun" type="submit">Enregistrer la prise</button>
     </form></main>`, { tab: false });
@@ -729,7 +735,7 @@ async function viewCatchForm() {
         lure_name: st.lure === 'new' ? (f.lureName.value.trim() || null) : null,
         lat: st.pos?.lat ?? null, lon: st.pos?.lon ?? null, spot_id: st.spot || null,
         caught_at: new Date(f.when.value).toISOString(), trip_id: f.trip.value || null,
-        released: f.released.checked, visibility: f.private.checked ? 'private' : 'crew', notes: f.notes.value.trim() || null,
+        released: f.released.checked, visibility: f.private.checked ? 'private' : 'crew', is_public: f.public.checked, notes: f.notes.value.trim() || null,
       };
       const item = {
         id: uuid(), payload,
@@ -808,7 +814,7 @@ async function viewCatch(id) {
     ${c.photo_path && url(c.photo_path) ? `<img class="photo" src="${url(c.photo_path)}" alt="${esc(c.species)}">` : ''}
     ${c.video_path && url(c.video_path) ? `<video class="photo" src="${url(c.video_path)}" controls playsinline preload="metadata"></video>` : ''}
     <div class="row between"><h2 class="h" style="font-size:24px">${esc(c.species)}</h2><b style="color:var(--sun-dark);font-size:22px">${kg(c.weight_kg)}</b></div>
-    <div class="row">${avatar(a)}<div><b>${esc(nameOf(a))}</b><div class="small muted">${fmtDate(c.caught_at, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · ${fmtTime(c.caught_at)}${c.created_by !== a ? ` · saisi par ${esc(nameOf(c.created_by))}` : ''}</div></div></div>
+    <a class="row" href="#/u/${a}" style="text-decoration:none;color:inherit">${avatar(a)}<div><b>${esc(nameOf(a))}</b><div class="small muted">${fmtDate(c.caught_at, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · ${fmtTime(c.caught_at)}${c.created_by !== a ? ` · saisi par ${esc(nameOf(c.created_by))}` : ''}</div></div></a>
     <div class="card list" style="padding:4px 16px">${[
       ['Taille', c.length_cm ? `${num(c.length_cm)} cm` : null], ['Profondeur', c.depth_m ? `${num(c.depth_m, 0)} m` : null], ['Technique', c.technique],
       ['Spot', spot ? `<a href="#/spot/${spot.id}">${esc(spot.name)}</a>` : null, true], ['Position', c.lat != null ? fmtCoord(c.lat, c.lon, S.coordMode) : null],
@@ -818,9 +824,12 @@ async function viewCatch(id) {
     ${lure || c.lure_name ? `<div class="card row">${lp && url(lp) ? `<img class="thumb" src="${url(lp)}" alt="Leurre">` : `<span class="thumb">${icon('lure')}</span>`}<div class="grow"><p class="small muted" style="margin:0">Leurre</p><b>${esc(lure?.name || c.lure_name)}</b>${lure ? `<div class="small muted">${esc([lure.lure_type, lure.weight_g ? lure.weight_g + ' g' : null, lure.color].filter(Boolean).join(' · '))}</div>` : ''}</div>${lure ? `<a class="iconbtn" href="#/lure/${lure.id}" aria-label="Voir le leurre">${icon('chev')}</a>` : ''}</div>` : ''}
     <section class="card"><p class="kicker" style="margin:0 0 10px">Conditions au moment de la prise</p><div class="stats">${cond.map(([ic, v, l]) => `<div class="stat">${icon(ic, 20)}<b>${v ?? '—'}</b><span>${esc(l)}</span></div>`).join('')}</div>${k.pressure_msl ? `<p class="small muted" style="margin:10px 0 0;text-align:center">Pression ${Math.round(k.pressure_msl)} hPa${k.wind_gusts_10m ? ` · rafales ${Math.round(k.wind_gusts_10m)} nds` : ''}${k.wave_period ? ` · période ${num(k.wave_period)} s` : ''}</p>` : ''}</section>
     ${c.notes ? `<p style="margin:0;white-space:pre-wrap">${esc(c.notes)}</p>` : ''}
+    ${c.created_by === S.user.id || c.angler_id === S.user.id ? `<label class="switch card" style="padding:10px 16px">Afficher sur ${a === S.user.id ? 'mon' : 'son'} profil public<input type="checkbox" id="pub" ${c.is_public ? 'checked' : ''}></label>` : ''}
     ${c.created_by === S.user.id ? '<button class="btn danger" id="del">Supprimer cette prise</button>' : ''}
   </main>`, { tab: 'home' });
   $app.querySelector('#sh').onclick = () => shareOrCopy(`${nameOf(a)} — ${c.species}${c.weight_kg ? ' ' + kg(c.weight_kg) : ''}${spot && c.visibility === 'crew' ? ' · ' + spot.name : ''} · ${fmtDate(c.caught_at)}`);
+  const pub = $app.querySelector('#pub');
+  if (pub) pub.onchange = async () => { const { error } = await sb.from('catches').update({ is_public: pub.checked }).eq('id', id); error ? (fail(error), (pub.checked = !pub.checked)) : toast(pub.checked ? 'Visible sur le profil public (sans le spot)' : 'Retirée du profil public'); };
   const del = $app.querySelector('#del');
   if (del) del.onclick = async () => { if (await confirmBox('Supprimer cette prise ?')) { const { error } = await sb.from('catches').delete().eq('id', id); error ? fail(error) : (toast('Prise supprimée'), go('#/')); } };
 }
@@ -1148,13 +1157,14 @@ async function viewCrew() {
     <section class="card dark row" style="gap:14px"><img src="icons/badge.svg" alt="" width="96" height="96"><div><h2 class="h" style="font-size:20px">${esc(S.crew.name)}</h2><p class="small muted" style="margin:4px 0 0">${S.memberIds.length} pêcheur${S.memberIds.length > 1 ? 's' : ''} · ${spotCount || 0} spots en commun · ${(cs || []).length} prises</p></div></section>
     ${S.crews.length > 1 ? `<div class="chips">${S.crews.map((c) => `<button class="chip ${c.id === S.crew.id ? 'on' : ''}" data-crew="${c.id}">${esc(c.name)}</button>`).join('')}</div>` : ''}
     <p class="kicker" style="margin:0">Classement</p>
-    <div class="card list" style="padding:0 16px">${ranking.map(([id, o], i) => `<div class="list-item">${avatar(id, `lg ${i === 0 ? 'sun' : ''}`)}<div class="grow"><b>${esc(nameOf(id))}</b>${id === S.user.id ? ' <span class="small muted">(toi)</span>' : ''}<div class="small muted ellipsis">${esc(S.members[id]?.bio || (S.members[id]?.role === 'owner' ? 'Capitaine' : ''))}</div></div><div style="text-align:right"><b>${o.n} prise${o.n > 1 ? 's' : ''}</b>${o.best ? `<div class="small" style="color:var(--sun-dark);font-weight:600">${esc(o.best.species)} ${kg(o.best.weight_kg)}</div>` : ''}</div></div>`).join('')}</div>
+    <div class="card list" style="padding:0 16px">${ranking.map(([id, o], i) => `<a class="list-item" href="#/u/${id}">${avatar(id, `lg ${i === 0 ? 'sun' : ''}`)}<div class="grow"><b>${esc(nameOf(id))}</b>${id === S.user.id ? ' <span class="small muted">(toi)</span>' : ''}<div class="small muted ellipsis">${esc(S.members[id]?.bio || (S.members[id]?.role === 'owner' ? 'Capitaine' : ''))}</div></div><div style="text-align:right"><b>${o.n} prise${o.n > 1 ? 's' : ''}</b>${o.best ? `<div class="small" style="color:var(--sun-dark);font-weight:600">${esc(o.best.species)} ${kg(o.best.weight_kg)}</div>` : ''}</div></a>`).join('')}</div>
     <section class="card"><p class="kicker" style="margin:0 0 8px">Inviter un ami</p><p class="muted small" style="margin:0 0 10px">Envoie le lien : il crée son compte et rejoint directement l’équipage.</p>
       <div class="row between" style="background:var(--sand);border-radius:12px;padding:10px 14px"><span class="h" style="font-size:22px;letter-spacing:.2em">${esc(S.crew.invite_code)}</span><button class="btn sm" id="inv">${icon('share', 16)}Envoyer le lien</button></div></section>
     <a class="btn ghost" href="#/trips">${icon('boat', 18)}Toutes les sorties</a>
     <a class="btn ghost" href="#/gpx">${icon('sd', 18)}Import / export (Humminbird, Garmin, Lowrance, Raymarine)</a>
     <a class="btn ghost" href="#/stats">${icon('chart', 18)}Stats de l’équipe</a>
-    <section class="card"><p class="kicker" style="margin:0 0 8px">Mon profil</p><form id="pf"><label class="f">Prénom<input name="name" required maxlength="40" value="${esc(S.profile?.display_name || '')}"></label><label class="f">Ma pêche (ex. Slow jig &amp; traîne)<input name="bio" maxlength="60" value="${esc(S.profile?.bio || '')}"></label><button class="btn">Enregistrer</button></form></section>
+    <section class="card"><p class="kicker" style="margin:0 0 8px">Mon profil</p><form id="pf"><label class="f">Prénom<input name="name" required maxlength="40" value="${esc(S.profile?.display_name || '')}"></label><label class="f">Ma pêche (ex. Slow jig &amp; traîne)<input name="bio" maxlength="60" value="${esc(S.profile?.bio || '')}"></label><label class="f">Port d’attache<input name="port" maxlength="60" value="${esc(S.profile?.home_port || '')}" placeholder="Tanger"></label><button class="btn">Enregistrer</button></form><a class="btn ghost sm" style="margin-top:10px;width:100%" href="#/u/${S.user.id}">Voir mon profil public</a></section>
+    <a class="btn ghost" href="#/captain">${icon('boat', 18)}Espace capitaine</a>
     <button class="btn dashed" id="newcrew">Rejoindre ou créer un autre équipage</button>
   </main>`, { tab: 'crew' });
   $app.querySelector('#inv').onclick = () => shareOrCopy(`Rejoins ${S.crew.name} sur Spartel\n${link}\nCode : ${S.crew.invite_code}`, 'Spartel');
@@ -1163,7 +1173,7 @@ async function viewCrew() {
   $app.querySelectorAll('[data-crew]').forEach((b) => (b.onclick = async () => { localStorage.setItem('crewId', b.dataset.crew); await loadCrew(); viewCrew(); }));
   $app.querySelector('#pf').onsubmit = async (e) => {
     e.preventDefault();
-    const { error } = await sb.from('profiles').update({ display_name: e.target.name.value.trim(), bio: e.target.bio.value.trim() }).eq('id', S.user.id);
+    const { error } = await sb.from('profiles').update({ display_name: e.target.name.value.trim(), bio: e.target.bio.value.trim(), home_port: e.target.port.value.trim() || null }).eq('id', S.user.id);
     if (error) return fail(error);
     await loadProfile(); await loadMembers(); toast('Profil enregistré'); viewCrew();
   };
@@ -1174,19 +1184,26 @@ function notFound() {
 }
 
 /* ---------------- Routeur ---------------- */
+const M = market({ sb, S, page, topbar, icon, esc, num, kg, fmtDate, fmtTime, toast, fail, go, modal, confirmBox, signed, shareOrCopy, qs, localDT, uuid, compressImage, notFound, SPECIES, TECHNIQUES, initials });
 const routes = [
   [/^#?\/?$/, viewHome], [/^#\/map/, viewMap], [/^#\/spot-new/, () => viewSpotForm()], [/^#\/spot-edit\/(.+)/, viewSpotForm], [/^#\/spot\/(.+)/, viewSpot],
   [/^#\/gpx/, viewGPX], [/^#\/catch-new/, viewCatchForm], [/^#\/catch\/(.+)/, viewCatch],
   [/^#\/lures/, viewLures], [/^#\/lure-new/, () => viewLureForm()], [/^#\/lure\/(.+)/, viewLureForm],
   [/^#\/trips/, viewTrips], [/^#\/trip-new/, () => viewTripForm()], [/^#\/trip-edit\/(.+)/, viewTripForm], [/^#\/trip\/(.+)/, viewTrip],
   [/^#\/crew/, viewCrew], [/^#\/reset/, viewReset], [/^#\/forecast/, viewForecast], [/^#\/stats/, viewStats],
+  ...M.routes,
 ];
 async function route() {
   if (!S.user) return viewAuth(location.hash.startsWith('#/signup') ? 'signup' : 'login');
   if (location.hash.startsWith('#/signup')) history.replaceState(null, '', '#/');
   if (location.hash.startsWith('#/reset')) return viewReset();
-  if (!S.crew) return viewOnboarding();
   const h = location.hash.split('?')[0] || '#/';
+  if (!S.crew) {
+    const mr = M.routes.find(([re]) => re.test(h));
+    if (!mr) return viewOnboarding();
+    try { await mr[1](h.match(mr[0])[1]); } catch (e) { fail(e); }
+    return;
+  }
   for (const [re, fn] of routes) {
     const m = h.match(re);
     if (m) { try { await fn(m[1]); } catch (e) { fail(e); } return; }

@@ -130,3 +130,40 @@ label.f { display: flex; flex-direction: column; gap: 6px; font: 600 12px var(--
 .months div{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%}
 .months span{display:block;width:100%;background:var(--sun);border-radius:4px 4px 0 0;min-height:2px}
 .months small{font:600 10px var(--b);color:var(--muted)}
+
+/* Sorties, réservations, chat */
+.shortcuts{grid-template-columns:repeat(3,1fr)}
+.pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:99px;font:700 11px var(--b);color:#fff;background:var(--pc);white-space:nowrap;flex:none}
+.vbadge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:99px;background:#1E7A46;color:#fff;font:700 11px var(--b);margin-top:4px}
+.ogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:14px}
+.ocard{padding:0;overflow:hidden;text-decoration:none;color:inherit;display:flex;flex-direction:column}
+.ophoto{position:relative;aspect-ratio:16/9;background:var(--navy);color:var(--sun);display:grid;place-items:center}
+.ophoto img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.otag{position:absolute;top:10px;left:10px;display:inline-flex;align-items:center;gap:4px;background:var(--navy);color:#fff;font:700 11px var(--b);padding:4px 8px;border-radius:99px}
+.hscroll{display:grid;grid-auto-flow:column;grid-auto-columns:min(78%,280px);gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px;scrollbar-width:none}
+.hscroll::-webkit-scrollbar{display:none}
+.hscroll>*{scroll-snap-align:start}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(46%,200px),1fr));gap:12px}
+.dotn{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;border-radius:10px;background:var(--sun);color:#fff;font:800 11px var(--b);display:grid;place-items:center;padding:0 5px}
+.pricebox{background:var(--white)}
+.plan{background:var(--sand);border-radius:12px;padding:10px 12px;margin-top:8px}
+.okline{display:flex;align-items:center;gap:6px;margin:10px 0 0;color:#1E7A46;font-weight:700}
+.paybtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.paybtns .btn:not(.sm){flex:1 1 140px}
+.chatscreen{padding-bottom:calc(90px + var(--safe-b))}
+.chat{display:flex;flex-direction:column}
+#msgs{display:flex;flex-direction:column;gap:8px}
+.msg{align-self:flex-start;max-width:82%;background:var(--white);border:1px solid var(--line);border-radius:16px 16px 16px 4px;padding:9px 12px;white-space:pre-wrap;word-wrap:break-word}
+.msg.me{align-self:flex-end;background:var(--navy);color:#fff;border-color:var(--navy);border-radius:16px 16px 4px 16px}
+.msg .t{display:block;font:500 10px var(--b);opacity:.6;margin-top:3px;text-align:right}
+.msg.bank{background:#FFF7F1;border-color:var(--sun);color:var(--navy)}
+.msg.bank .btn{color:var(--navy)}
+.sysmsg{align-self:center;text-align:center;font:600 12px var(--b);color:var(--muted);background:rgba(11,31,51,.06);border-radius:99px;padding:6px 12px;margin:2px 0;max-width:92%}
+.sysmsg span{font-weight:500;opacity:.7;margin-left:6px}
+.composer{position:fixed;left:0;right:0;bottom:0;z-index:20;flex-direction:row;gap:8px;align-items:center;background:var(--sand);border-top:1px solid var(--line);padding:10px 12px calc(10px + var(--safe-b))}
+.composer input{flex:1;min-height:46px;border-radius:23px;border:1px solid var(--line);background:#fff;padding:0 16px;font:500 15px var(--b);min-width:0}
+.composer input:focus{outline:2px solid var(--sun)}
+.sendbtn{background:var(--sun);color:#fff;border-radius:23px;width:46px;height:46px;flex:none;transform:rotate(90deg)}
+@media (min-width:700px){.composer{max-width:640px;margin:0 auto;border-left:1px solid var(--line);border-right:1px solid var(--line)}}
+a.banner{color:#fff}
+[hidden]{display:none !important}
