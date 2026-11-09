@@ -1,8 +1,8 @@
 // Service worker : garde l'appli disponible hors ligne (en mer sans réseau).
-const VERSION = 'spartel-v1';
+const VERSION = 'spartel-v2';
 const SHELL = [
   './', './index.html', './css/app.css', './manifest.webmanifest',
-  './js/app.js', './js/geo.js', './js/media.js', './js/offline.js', './js/config.js',
+  './js/app.js', './js/geo.js', './js/forecast.js', './js/media.js', './js/offline.js', './js/config.js',
   './icons/symbol.svg', './icons/badge.svg', './icons/wordmark.svg', './icons/icon-192.png', './icons/favicon.png',
 ];
 

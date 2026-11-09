@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import { SUPABASE_URL, SUPABASE_KEY, HOME_POS } from './config.js';
-import { fmtCoord, parseCoords, parseGPX, buildGPX, trackStats, simplify, fetchConditions, fetchCurrent, windDir, moonPhase, haversine } from './geo.js';
+import { fmtCoord, parseCoords, parseGPX, buildGPX, buildKML, buildCSV, parseAny, bearing, trackStats, simplify, fetchConditions, fetchCurrent, windDir, moonPhase, haversine } from './geo.js';
 import { readPhotoMeta, compressImage, MAX_VIDEO_MB } from './media.js';
 import { queueAdd, queueAll, queueDelete } from './offline.js';
 
@@ -73,6 +73,12 @@ const ICONS = {
   logout: '<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/>',
   layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
   check: '<path d="M5 12l5 5 9-10"/>',
+  chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  rec: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3" fill="currentColor"/>',
+  play: '<path d="M7 4l13 8-13 8z"/>',
+  compass: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
+  fire: '<path d="M12 3s5 4.5 5 9a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3-1-5 1-7.5z"/>',
 };
 const icon = (n, s = 22, sw = 2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ''}</svg>`;
 const avatar = (id, cls = '') => `<span class="avatar ${cls}">${esc(initials(nameOf(id)))}</span>`;
@@ -270,6 +276,7 @@ async function viewHome() {
     ${topbar({ right: `<a href="#/crew" aria-label="Mon profil"><span class="avatar sun lg">${esc(initials(S.profile?.display_name))}</span></a>` })}
     ${pending.length ? `<div class="banner"><span>${pending.length} prise${pending.length > 1 ? 's' : ''} en attente de réseau</span><button class="btn sm" id="sync" style="background:var(--navy)">Envoyer</button></div>` : ''}
     ${showInstall ? `<div class="card install"><div class="row between"><b>Installer Spartel sur l’iPhone</b><button class="iconbtn" id="hideInstall" aria-label="Masquer">✕</button></div><p class="muted" style="margin:6px 0 0">Dans Safari : bouton <b>Partager</b> ${icon('share', 16)} puis <b>Sur l’écran d’accueil</b>.</p></div>` : ''}
+    <nav class="shortcuts" aria-label="Raccourcis">${[['#/forecast', 'sun', 'Prévisions'], ['#/trips', 'boat', 'Sorties'], ['#/stats', 'chart', 'Stats'], ['#/gpx', 'sd', 'Import / Export']].map(([h, i, l]) => `<a href="${h}">${icon(i, 22)}<span>${l}</span></a>`).join('')}</nav>
     <section class="card" id="next"><p class="kicker">Prochaine sortie</p><p class="muted">Chargement…</p></section>
     <section class="card"><div class="row between"><p class="kicker">Conditions · ${esc(HOME_POS.name)}</p><span class="small muted">maintenant</span></div><div class="stats" id="cond" style="margin-top:10px"><p class="muted">…</p></div></section>
     <section id="board" class="card"><div class="row">${icon('trophy', 20)}<h2 class="h" style="font-size:14px">Plus gros du mois</h2></div><div class="list" id="boardList" style="margin-top:6px"><p class="muted">…</p></div></section>
@@ -363,7 +370,7 @@ async function viewMap() {
       <form class="search" id="sf"><span aria-hidden="true">${icon('search', 20)}</span><input name="q" placeholder="Spot ou coordonnées (35°48,2'N 5°58,9'W)" aria-label="Chercher un spot ou des coordonnées" autocomplete="off"><button class="iconbtn" type="button" id="gpx" aria-label="Importer un GPX du Solix">${icon('sd', 20)}</button></form>
       <div class="chips" id="filters"><button class="chip on" data-f="all">Tous</button><button class="chip" data-f="mine">Mes spots</button><button class="chip" data-f="private">Privés</button><button class="chip" data-f="crew">Équipe</button>${BOTTOMS.slice(0, 4).map((b) => `<button class="chip" data-f="b:${b}">${b}</button>`).join('')}</div>
     </div>
-    <div class="map-fabs"><button class="iconbtn" id="layers" aria-label="Afficher les profondeurs">${icon('layers')}</button><button class="iconbtn" id="loc" aria-label="Ma position">${icon('locate')}</button><button class="iconbtn" id="addspot" aria-label="Ajouter un spot" style="background:var(--sun);color:#fff">${icon('plus', 24, 2.4)}</button></div>
+    <div class="map-fabs"><button class="iconbtn" id="heat" aria-label="Carte de chaleur des prises">${icon('fire')}</button><button class="iconbtn" id="layers" aria-label="Afficher les profondeurs">${icon('layers')}</button><button class="iconbtn" id="loc" aria-label="Ma position">${icon('locate')}</button><button class="iconbtn" id="addspot" aria-label="Ajouter un spot" style="background:var(--sun);color:#fff">${icon('plus', 24, 2.4)}</button></div>
     <div id="sheetHost"></div>`, { tab: 'map' });
 
   const map = new maplibregl.Map({ container: 'map', style: baseStyle(), center: [HOME_POS.lon - 0.05, HOME_POS.lat], zoom: 10.5, attributionControl: { compact: true } });
@@ -402,6 +409,16 @@ async function viewMap() {
     $app.querySelectorAll('#filters .chip').forEach((x) => x.classList.toggle('on', x === c)); filter = c.dataset.f; draw();
   }));
   $app.querySelector('#gpx').onclick = () => go('#/gpx');
+  let heatOn = false;
+  $app.querySelector('#heat').onclick = async () => {
+    heatOn = !heatOn;
+    if (heatOn && !map.getSource('heat')) {
+      const { data: cs } = await sb.from('catches').select('lat, lon, weight_kg').eq('crew_id', S.crew.id).not('lat', 'is', null);
+      map.addSource('heat', { type: 'geojson', data: { type: 'FeatureCollection', features: (cs || []).map((c) => ({ type: 'Feature', properties: { w: +c.weight_kg || 1 }, geometry: { type: 'Point', coordinates: [c.lon, c.lat] } })) } });
+      map.addLayer({ id: 'heat', type: 'heatmap', source: 'heat', paint: { 'heatmap-weight': ['interpolate', ['linear'], ['get', 'w'], 0, 0.4, 10, 1], 'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 18, 14, 40], 'heatmap-opacity': 0.75, 'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(226,112,58,0)', 0.3, 'rgba(242,176,122,0.6)', 0.7, '#E2703A', 1, '#B3261E'] } });
+      toast(`${(cs || []).length} prise${(cs || []).length > 1 ? 's' : ''} sur la carte de chaleur`);
+    } else if (map.getLayer('heat')) map.setLayoutProperty('heat', 'visibility', heatOn ? 'visible' : 'none');
+  };
   let bathyOn = false;
   $app.querySelector('#layers').onclick = () => {
     bathyOn = !bathyOn; map.setLayoutProperty('bathy', 'visibility', bathyOn ? 'visible' : 'none');
@@ -467,7 +484,8 @@ async function viewSpot(id) {
     <div class="grid2"><div class="card" style="padding:12px"><p class="small muted" style="margin:0">Meilleur leurre</p><b>${esc(topLure?.[0] || '—')}</b></div><div class="card" style="padding:12px"><p class="small muted" style="margin:0">Meilleur moment</p><b>${esc(hours?.[0] || '—')}</b></div></div>
     <p class="kicker" style="margin:4px 0 0">${(catches || []).length} prise${(catches || []).length > 1 ? 's' : ''} sur ce spot${topSpecies.length ? ` · ${topSpecies.map((x) => esc(x[0])).join(', ')}` : ''}</p>
     <div class="list card" style="padding:0 16px">${(catches || []).slice(0, 20).map((c) => `<a class="list-item" href="#/catch/${c.id}">${c.photo_path && url(c.photo_path) ? `<img class="thumb" src="${url(c.photo_path)}" alt="">` : `<span class="thumb">${icon('cam', 18)}</span>`}<div class="grow"><b>${esc(c.species)}</b> ${c.weight_kg ? `<span style="color:var(--sun-dark);font-weight:700">${kg(c.weight_kg)}</span>` : ''}<div class="small muted">${esc(nameOf(c.angler_id || c.created_by))} · ${fmtDate(c.caught_at)}</div></div>${icon('chev', 18)}</a>`).join('') || '<p class="muted">Pas encore de prise ici.</p>'}</div>
-    <div class="btn-row"><button class="btn" id="gpx">${icon('sd', 18)}GPX pour le Solix</button><button class="btn sun" id="sh">${icon('share', 18)}Partager</button></div>
+    <button class="btn sun" id="nav">${icon('compass', 18)}Guidage vers le spot</button>
+    <div class="btn-row"><button class="btn" id="gpx">${icon('sd', 18)}Exporter (GPX, KML, CSV)</button><button class="btn ghost" id="sh">${icon('share', 18)}Partager</button></div>
     <div class="btn-row"><a class="btn ghost" href="#/map?spot=${s.id}&lat=${s.lat}&lon=${s.lon}">${icon('map', 18)}Sur la carte</a><a class="btn ghost" href="#/catch-new?spot=${s.id}">${icon('plus', 18)}Prise ici</a></div>
   </main>`, { tab: 'map' });
   $app.querySelectorAll('#cm .chip').forEach((c) => (c.onclick = () => {
@@ -475,7 +493,8 @@ async function viewSpot(id) {
     $app.querySelectorAll('#cm .chip').forEach((x) => x.classList.toggle('on', x === c));
     $app.querySelector('#coord').textContent = fmtCoord(s.lat, s.lon, S.coordMode);
   }));
-  $app.querySelector('#gpx').onclick = () => download(`${s.name.replace(/[^\w-]+/g, '_')}.gpx`, buildGPX({ spots: [s], name: s.name }));
+  $app.querySelector('#gpx').onclick = () => exportSpots([s], s.name);
+  $app.querySelector('#nav').onclick = () => guide(s);
   $app.querySelector('#sh').onclick = () => shareOrCopy(`${s.name}\n${fmtCoord(s.lat, s.lon, 'ddm')}\n${fmtCoord(s.lat, s.lon, 'dec')}${s.depth_min ? `\n${num(s.depth_min, 0)}${s.depth_max ? '–' + num(s.depth_max, 0) : ''} m` : ''}`, s.name);
 }
 
@@ -525,37 +544,59 @@ async function viewSpotForm(id) {
 }
 
 /* ---------------- Import GPX (Solix) ---------------- */
+const BRANDS = {
+  Humminbird: 'Solix / Apex / Xplore : Accueil → Mes données → Exporter tout, sur la carte SD (format GPX). Helix : passer par HumminbirdPC pour convertir en GPX.',
+  Garmin: 'ECHOMAP / GPSMAP : Nav Info → Gestion des données (User Data) → Transfert de données → Type de fichier → GPX, puis Enregistrer sur la carte. Sinon le fichier sort en .adm.',
+  Lowrance: 'HDS / Elite : Pages → Fichiers (Files) → Waypoints, routes, traces → Exporter → format GPX → carte SD.',
+  Raymarine: 'Axiom : Accueil → Mes données → Import/Export → Enregistrer sur la carte. Le fichier est en GPX (dossier Raymarine/My Data).',
+  Autres: 'Tout traceur, GPS ou logiciel qui lit le GPX (OpenCPN, Navionics via fichier, Google Earth en KML, tableur en CSV).',
+};
+function exportSpots(spots, name = 'spartel-spots') {
+  const base = name.replace(/[^\w-]+/g, '_');
+  const m = modal(`<p class="h" style="font-size:16px;margin-bottom:6px">Exporter ${spots.length} spot${spots.length > 1 ? 's' : ''}</p><p class="small muted" style="margin:0 0 14px">Choisis le format selon l’appareil.</p>
+    <div style="display:grid;gap:10px"><button class="btn" data-f="gpx">${icon('sd', 18)}GPX · Humminbird, Garmin, Lowrance, Raymarine…</button><button class="btn ghost" data-f="kml">KML · Google Earth, OpenCPN</button><button class="btn ghost" data-f="csv">CSV · Excel, Numbers, autres applis</button></div>`);
+  m.querySelectorAll('[data-f]').forEach((b) => (b.onclick = () => {
+    const f = b.dataset.f;
+    if (f === 'gpx') download(`${base}.gpx`, buildGPX({ spots, name }));
+    if (f === 'kml') download(`${base}.kml`, buildKML({ spots, name }), 'application/vnd.google-earth.kml+xml');
+    if (f === 'csv') download(`${base}.csv`, buildCSV(spots), 'text/csv');
+    m.remove();
+  }));
+}
 function viewGPX() {
-  page(`<main class="screen">${topbar({ title: 'Import Solix (GPX)', back: true })}
-    <div class="card"><p style="margin:0 0 8px;font-weight:700">Depuis le Humminbird Solix</p>
-      <ol class="muted" style="margin:0;padding-left:18px;font-size:14px"><li>Insère une carte SD (32 Go max) dans le Solix.</li><li>Accueil → <b>Mes données</b> → <b>Exporter tout</b>.</li><li>Mets le fichier .gpx sur ton téléphone (AirDrop, WhatsApp, Fichiers) et choisis-le ci-dessous.</li></ol></div>
-    <label class="drop">${icon('upload', 26)}<span>Choisir un fichier .gpx</span><input type="file" id="file" accept=".gpx,application/gpx+xml,application/xml,text/xml"></label>
+  page(`<main class="screen">${topbar({ title: 'Import / Export', back: true })}
+    <div class="card"><p style="margin:0 0 10px;font-weight:700">Depuis ton sondeur ou ton GPS</p>
+      <div class="chips" id="brands">${Object.keys(BRANDS).map((b, i) => `<button class="chip ${i === 0 ? 'on' : ''}" data-b="${b}">${b}</button>`).join('')}</div>
+      <p class="muted" id="howto" style="margin:12px 0 0;font-size:14px">${BRANDS.Humminbird}</p>
+      <p class="small muted" style="margin:10px 0 0">Mets ensuite le fichier sur ton téléphone (AirDrop, WhatsApp, Fichiers) et choisis-le ci-dessous.</p></div>
+    <label class="drop">${icon('upload', 26)}<span>Choisir un fichier .gpx, .kml ou .csv</span><input type="file" id="file" accept=".gpx,.kml,.csv,.txt,application/gpx+xml,application/xml,text/xml,text/csv"></label>
     <div id="res"></div>
-    <div class="card"><p style="margin:0 0 8px;font-weight:700">Exporter vers le Solix</p><p class="muted small" style="margin:0 0 12px">Crée un GPX avec tes spots et ceux de l’équipe, à copier sur la carte SD puis importer dans le Solix.</p><button class="btn" id="exp">${icon('sd', 18)}Exporter tous les spots</button></div>
+    <div class="card"><p style="margin:0 0 8px;font-weight:700">Exporter vers un appareil</p><p class="muted small" style="margin:0 0 12px">Tes spots et ceux de l’équipe, dans le format de ton choix. Pour le traceur : copie le fichier sur la carte SD puis importe-le depuis le menu de l’appareil.</p><button class="btn" id="exp">${icon('sd', 18)}Exporter tous les spots</button></div>
   </main>`, { tab: false });
+  $app.querySelectorAll('#brands .chip').forEach((c) => (c.onclick = () => { $app.querySelectorAll('#brands .chip').forEach((x) => x.classList.toggle('on', x === c)); $app.querySelector('#howto').textContent = BRANDS[c.dataset.b]; }));
   $app.querySelector('#exp').onclick = async () => {
     const { data } = await sb.from('spots').select('*').eq('crew_id', S.crew.id);
     if (!data?.length) return toast('Aucun spot à exporter');
-    download(`spartel-spots-${todayISO()}.gpx`, buildGPX({ spots: data, name: 'Spartel' }));
+    exportSpots(data, `spartel-spots-${todayISO()}`);
   };
   $app.querySelector('#file').onchange = async (e) => {
     const file = e.target.files[0]; if (!file) return;
     let gpx;
-    try { gpx = parseGPX(await file.text()); } catch (err) { return fail(err); }
+    try { gpx = parseAny(file.name, await file.text()); } catch (err) { return fail(err); }
     const res = $app.querySelector('#res');
-    res.innerHTML = `${gpx.waypoints.length ? `<section class="card"><div class="row between"><b>${gpx.waypoints.length} waypoint${gpx.waypoints.length > 1 ? 's' : ''}</b><button class="btn sm ghost" id="all">Tout cocher</button></div>
+    res.innerHTML = `${gpx.waypoints.length ? `<section class="card"><div class="row between"><b>${gpx.waypoints.length} point${gpx.waypoints.length > 1 ? 's' : ''}</b><button class="btn sm ghost" id="all">Tout cocher</button></div>
       <div class="list" style="max-height:320px;overflow:auto;margin:8px 0">${gpx.waypoints.map((w, i) => `<label class="list-item"><input type="checkbox" data-i="${i}" checked style="width:20px;height:20px"><div class="grow"><b>${esc(w.name)}</b><div class="small muted">${fmtCoord(w.lat, w.lon, S.coordMode)}${w.depth != null ? ` · ${num(w.depth, 0)} m` : ''}</div></div></label>`).join('')}</div>
       <div class="chips" id="vis"><button type="button" class="chip on" data-v="private">${icon('lock', 14)}Privés</button><button type="button" class="chip" data-v="crew">${icon('users', 14)}Partagés à l’équipe</button></div>
       <button class="btn sun" id="imp" style="width:100%;margin-top:12px">Importer les spots</button></section>` : ''}
       ${gpx.tracks.map((t, i) => { const st = trackStats(t.points); return `<section class="card"><b>${esc(t.name)}</b><p class="small muted" style="margin:4px 0 12px">${t.points.length} points · ${st.distance_km} km${st.start ? ` · ${fmtDate(st.start)}` : ''}</p><button class="btn" data-trk="${i}" style="width:100%">${icon('boat', 18)}Créer une sortie avec ce track</button></section>`; }).join('')}
-      ${!gpx.waypoints.length && !gpx.tracks.length ? '<p class="muted">Aucun waypoint ni track dans ce fichier.</p>' : ''}`;
+      ${!gpx.waypoints.length && !gpx.tracks.length ? '<p class="muted">Aucun point ni track dans ce fichier.</p>' : ''}`;
     let vis = 'private';
     res.querySelectorAll('#vis .chip').forEach((c) => (c.onclick = () => { vis = c.dataset.v; res.querySelectorAll('#vis .chip').forEach((x) => x.classList.toggle('on', x === c)); }));
     const all = res.querySelector('#all'); if (all) all.onclick = () => { const boxes = res.querySelectorAll('[data-i]'); const on = [...boxes].some((b) => !b.checked); boxes.forEach((b) => (b.checked = on)); };
     const imp = res.querySelector('#imp');
     if (imp) imp.onclick = async () => {
       const rows = [...res.querySelectorAll('[data-i]:checked')].map((b) => gpx.waypoints[+b.dataset.i]).map((w) => ({
-        crew_id: S.crew.id, name: w.name.slice(0, 60), lat: w.lat, lon: w.lon, notes: w.notes || null, depth_min: w.depth ?? null, visibility: vis, source: 'gpx',
+        crew_id: S.crew.id, name: String(w.name).slice(0, 60), lat: w.lat, lon: w.lon, notes: w.notes || null, depth_min: w.depth ?? null, visibility: vis, source: 'import',
       }));
       if (!rows.length) return toast('Rien de coché');
       imp.disabled = true;
@@ -570,6 +611,34 @@ function viewGPX() {
       toast('Sortie créée'); go(`#/trip/${data.id}`);
     }));
   };
+}
+
+/* ---------------- Guidage vers un spot ---------------- */
+function guide(s) {
+  const m = modal(`<p class="h" style="font-size:16px;margin:0">${esc(s.name)}</p><p class="small muted" style="margin:4px 0 14px">${fmtCoord(s.lat, s.lon, S.coordMode)}</p>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px"><div id="arrow" style="width:150px;height:150px;border-radius:50%;background:var(--navy);color:var(--sun);display:flex;align-items:center;justify-content:center;transition:transform .3s">${icon('nav', 70, 2)}</div>
+    <div class="stats" style="width:100%"><div class="stat"><b id="dist">—</b><span>Distance</span></div><div class="stat"><b id="brg">—</b><span>Cap</span></div><div class="stat"><b id="spd">—</b><span>Vitesse</span></div></div>
+    <p class="small muted" id="gst" style="margin:0;text-align:center">Recherche du GPS…</p>
+    <button class="btn ghost sm" id="cmp">Activer la boussole</button></div>`);
+  let heading = null, last = null;
+  const upd = () => {
+    if (!last) return;
+    const d = haversine([last.lat, last.lon], [s.lat, s.lon]);
+    const b = bearing([last.lat, last.lon], [s.lat, s.lon]);
+    m.querySelector('#dist').textContent = d > 1852 ? `${(d / 1852).toFixed(2)} nq` : `${Math.round(d)} m`;
+    m.querySelector('#brg').textContent = `${Math.round(b)}°`;
+    m.querySelector('#spd').textContent = last.speed != null ? `${(last.speed * 1.94384).toFixed(1)} nds` : '—';
+    m.querySelector('#arrow').style.transform = `rotate(${b - (heading ?? 0)}deg)`;
+    m.querySelector('#gst').textContent = `Précision ± ${Math.round(last.acc)} m${heading == null ? ' · flèche orientée nord en haut' : ''}`;
+    if (d < 30) m.querySelector('#gst').textContent = 'Tu es sur le spot.';
+  };
+  const id = navigator.geolocation?.watchPosition((p) => { last = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, speed: p.coords.speed }; upd(); }, (e) => (m.querySelector('#gst').textContent = e.code === 1 ? 'Autorise la localisation dans les réglages.' : 'Position introuvable'), { enableHighAccuracy: true, maximumAge: 2000 });
+  const onOri = (e) => { const h = e.webkitCompassHeading ?? (e.alpha != null ? 360 - e.alpha : null); if (h != null) { heading = h; upd(); } };
+  m.querySelector('#cmp').onclick = async () => {
+    try { if (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) { const r = await DeviceOrientationEvent.requestPermission(); if (r !== 'granted') return toast('Boussole refusée'); } window.addEventListener('deviceorientation', onOri); toast('Boussole activée'); } catch (e) { toast('Boussole indisponible'); }
+  };
+  const obs = new MutationObserver(() => { if (!document.body.contains(m)) { navigator.geolocation?.clearWatch(id); window.removeEventListener('deviceorientation', onOri); obs.disconnect(); } });
+  obs.observe(document.body, { childList: true });
 }
 
 /* ---------------- Prises ---------------- */
@@ -874,9 +943,11 @@ async function viewTrip(id) {
     <p class="kicker" style="margin:0">Fil de la sortie</p>
     <div class="card list timeline" style="padding:0 16px">${(cs || []).map((c) => `<a class="list-item" href="#/catch/${c.id}"><span class="time">${fmtTime(c.caught_at)}</span><span class="dot"></span>${c.photo_path && url(c.photo_path) ? `<img class="thumb" src="${url(c.photo_path)}" alt="" style="width:44px;height:44px">` : ''}<div class="grow"><b>${esc(c.species)} ${c.weight_kg ? kg(c.weight_kg) : ''}</b><div class="small muted">${esc(nameOf(c.angler_id || c.created_by))}${c.depth_m ? ` · ${num(c.depth_m, 0)} m` : ''}</div></div></a>`).join('') || '<p class="muted">Pas encore de prise sur cette sortie.</p>'}</div>
     <div class="btn-row"><a class="btn sun" href="#/catch-new?trip=${t.id}">${icon('plus', 18)}Ajouter une prise</a>${t.track?.length ? `<button class="btn ghost" id="exp">${icon('sd', 18)}GPX</button>` : ''}</div>
+    <div class="btn-row">${canEdit ? `<button class="btn" id="rec">${icon('rec', 18)}${recState()?.trip === t.id ? 'Reprendre l’enregistrement' : 'Enregistrer le track'}</button>` : ''}${t.track?.length > 1 ? `<button class="btn ghost" id="replay">${icon('play', 18)}Replay</button>` : ''}</div>
   </main>`, { tab: 'home' });
   const exp = $app.querySelector('#exp');
   if (exp) exp.onclick = () => download(`sortie-${t.trip_date}.gpx`, buildGPX({ track: t.track, name: t.title || `Sortie ${t.trip_date}` }));
+  const rb = $app.querySelector('#rec'); if (rb) rb.onclick = () => recorder(t);
   const el = $app.querySelector('#tmap');
   if (el) {
     const map = new maplibregl.Map({ container: el, style: baseStyle(), center: [HOME_POS.lon, HOME_POS.lat], zoom: 10, attributionControl: { compact: true } });
@@ -889,8 +960,177 @@ async function viewTrip(id) {
         new maplibregl.Marker({ element: elm, anchor: 'bottom' }).setLngLat([c.lon, c.lat]).addTo(map); b.extend([c.lon, c.lat]);
       });
       if (!b.isEmpty()) map.fitBounds(b, { padding: 30, maxZoom: 14, duration: 0 });
+      const rp = $app.querySelector('#replay');
+      if (rp) rp.onclick = () => replay(map, t, cs || []);
     });
   }
+}
+
+/* ---------------- Replay d'une sortie ---------------- */
+function replay(map, t, cs) {
+  const pts = t.track; if (!pts?.length) return;
+  el_scroll(map.getContainer());
+  const timed = pts[0][2] && pts[pts.length - 1][2];
+  const t0 = timed ? pts[0][2] : 0, t1 = timed ? pts[pts.length - 1][2] : pts.length;
+  const boat = document.createElement('div'); boat.style.cssText = 'width:18px;height:18px;border-radius:50%;background:#E2703A;border:3px solid #fff;box-shadow:0 0 0 6px rgba(226,112,58,.3)';
+  const mk = new maplibregl.Marker({ element: boat }).setLngLat([pts[0][1], pts[0][0]]).addTo(map);
+  const label = document.createElement('div'); label.style.cssText = 'position:absolute;left:10px;top:10px;background:#0B1F33;color:#fff;font:700 13px Inter,sans-serif;padding:6px 10px;border-radius:8px;z-index:2';
+  map.getContainer().appendChild(label);
+  const shown = new Set(); const DUR = 15000; const start = performance.now();
+  if (map.getSource('trk')) map.getSource('trk').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: [] } });
+  const step = (now) => {
+    if (!document.body.contains(boat) || !map.getStyle?.()) { label.remove(); return; }
+    const k = Math.min(1, (now - start) / DUR);
+    const tt = t0 + (t1 - t0) * k;
+    let i = timed ? pts.findIndex((p) => p[2] > tt) : Math.floor(k * (pts.length - 1));
+    if (i < 0) i = pts.length - 1;
+    const done = pts.slice(0, Math.max(1, i + 1));
+    if (map.getSource('trk')) map.getSource('trk').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: done.map((p) => [p[1], p[0]]) } });
+    const cur = pts[Math.max(0, i)]; mk.setLngLat([cur[1], cur[0]]);
+    if (timed) label.textContent = fmtTime(tt);
+    cs.forEach((c) => { if (!shown.has(c.id) && c.lat != null && (!timed || Date.parse(c.caught_at) <= tt)) { shown.add(c.id); toast(`${fmtTime(c.caught_at)} · ${nameOf(c.angler_id || c.created_by)} · ${c.species}${c.weight_kg ? ' ' + kg(c.weight_kg) : ''}`, 2200); } });
+    if (k < 1 && document.body.contains(boat)) requestAnimationFrame(step); else setTimeout(() => { label.remove(); }, 2500);
+  };
+  requestAnimationFrame(step);
+}
+function el_scroll(el) { try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {} }
+
+/* ---------------- Enregistrement du track depuis le téléphone ---------------- */
+const REC_KEY = 'spartel-rec';
+function recState() { try { return JSON.parse(localStorage.getItem(REC_KEY) || 'null'); } catch (e) { return null; } }
+function recSave(st) { try { localStorage.setItem(REC_KEY, JSON.stringify(st)); } catch (e) {} }
+function recorder(t) {
+  let st = recState();
+  if (st && st.trip !== t.id) return toast('Un enregistrement est déjà en cours sur une autre sortie');
+  if (!st) { st = { trip: t.id, pts: [] }; recSave(st); }
+  let lock = null, wid = null;
+  const m = modal(`<p class="h" style="font-size:16px;margin:0 0 4px">Enregistrement du track</p><p class="small muted" style="margin:0 0 14px">Garde Spartel ouvert à l’écran : l’iPhone coupe le GPS des applis web quand l’écran est verrouillé. Les points sont gardés sur le téléphone, même sans réseau.</p>
+    <div class="stats"><div class="stat"><b id="rp">0</b><span>Points</span></div><div class="stat"><b id="rd">0 km</b><span>Distance</span></div><div class="stat"><b id="rs">—</b><span>Vitesse</span></div></div>
+    <div class="btn-row" style="margin-top:16px"><button class="btn ghost" id="pause">Pause</button><button class="btn sun" id="stop">Terminer et enregistrer</button></div>`);
+  const upd = (spd) => { const s2 = trackStats(st.pts); m.querySelector('#rp').textContent = st.pts.length; m.querySelector('#rd').textContent = `${s2.distance_km} km`; if (spd != null) m.querySelector('#rs').textContent = `${(spd * 1.94384).toFixed(1)} nds`; };
+  const startWatch = async () => {
+    try { lock = await navigator.wakeLock?.request('screen'); } catch (e) {}
+    wid = navigator.geolocation.watchPosition((p) => {
+      const pt = [p.coords.latitude, p.coords.longitude, Date.now()];
+      const lastp = st.pts[st.pts.length - 1];
+      if (p.coords.accuracy > 60) return;
+      if (lastp && haversine(lastp, pt) < 8 && pt[2] - lastp[2] < 30000) return;
+      st.pts.push(pt); recSave(st); upd(p.coords.speed);
+    }, (e) => toast(e.code === 1 ? 'Autorise la localisation' : 'GPS indisponible'), { enableHighAccuracy: true, maximumAge: 0 });
+  };
+  const stopWatch = () => { if (wid != null) navigator.geolocation.clearWatch(wid); wid = null; try { lock?.release(); } catch (e) {} };
+  upd(); startWatch();
+  let paused = false;
+  m.querySelector('#pause').onclick = (e) => { paused = !paused; paused ? stopWatch() : startWatch(); e.target.textContent = paused ? 'Reprendre' : 'Pause'; };
+  m.querySelector('#stop').onclick = async () => {
+    stopWatch();
+    if (st.pts.length < 2) { localStorage.removeItem(REC_KEY); m.remove(); return toast('Track trop court, rien enregistré'); }
+    const merged = [...(t.track || []), ...st.pts];
+    const { error } = await sb.from('trips').update({ track: simplify(merged), stats: trackStats(merged) }).eq('id', t.id);
+    if (error) { toast('Pas de réseau : le track reste sur le téléphone, réessaie au port', 5000); return; }
+    localStorage.removeItem(REC_KEY); m.remove(); toast('Track enregistré'); viewTrip(t.id);
+  };
+  const obs = new MutationObserver(() => { if (!document.body.contains(m)) { stopWatch(); obs.disconnect(); } });
+  obs.observe(document.body, { childList: true });
+}
+
+/* ---------------- Prévisions & meilleures heures ---------------- */
+async function viewForecast() {
+  const q = qs();
+  const { data: spots } = await sb.from('spots').select('id, name, lat, lon').eq('crew_id', S.crew.id).order('name');
+  let loc = HOME_POS;
+  if (q.spot) { const s = (spots || []).find((x) => x.id === q.spot); if (s) loc = { lat: s.lat, lon: s.lon, name: s.name }; }
+  page(`<main class="screen">${topbar({ title: 'Prévisions', back: true })}
+    <div class="row"><label class="f" style="flex:1">Lieu<select id="loc"><option value="">${esc(HOME_POS.name)}</option>${(spots || []).map((s) => `<option value="${s.id}" ${s.id === q.spot ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></label><button class="iconbtn" id="me" aria-label="Ma position" style="align-self:flex-end;background:#fff;border:1px solid var(--line)">${icon('locate')}</button></div>
+    <div id="fc"><p class="muted">Calcul des prévisions…</p></div>
+    <p class="small muted" style="margin:0">Indice Spartel : lune, périodes solunaires à l’aube et au crépuscule, vent, houle et marnage. C’est un indicateur, pas une garantie. Marées calculées par modèle (Open-Meteo), à ne pas utiliser pour la navigation.</p>
+  </main>`, { tab: 'home' });
+  $app.querySelector('#loc').onchange = (e) => go(e.target.value ? `#/forecast?spot=${e.target.value}` : '#/forecast');
+  $app.querySelector('#me').onclick = async () => { try { const p = await getPosition(); render({ lat: p.lat, lon: p.lon, name: 'Ma position' }); } catch (e) { fail(e); } };
+  const render = async (L) => {
+    const box = $app.querySelector('#fc'); box.innerHTML = '<p class="muted">Calcul des prévisions…</p>';
+    let days;
+    try { const { forecast } = await import('./forecast.js'); days = await forecast(L.lat, L.lon); } catch (e) { box.innerHTML = `<p class="muted">Prévisions indisponibles (${esc(e.message)}).</p>`; return; }
+    const col = (sc) => (sc >= 70 ? '#2E7D4F' : sc >= 50 ? '#E2703A' : '#8A97A6');
+    const t = (d) => (d ? fmtTime(d) : '—');
+    box.innerHTML = `<p class="kicker" style="margin:0 0 10px">${esc(L.name)} · 7 jours</p>` + days.map((d, i) => `
+      <details class="card fday" ${i === 0 ? 'open' : ''}><summary class="row between" style="cursor:pointer;list-style:none">
+        <div><b style="text-transform:capitalize">${esc(fmtDate(d.date, { weekday: 'long', day: 'numeric', month: 'short' }))}</b><div class="small muted">${d.windMax != null ? `Vent ${Math.round(d.windAvg)}–${Math.round(d.windMax)} nds ${windDir(d.dirAvg)}` : ''}${d.waveMax != null ? ` · houle ${num(d.waveMax)} m` : ''}${d.sst != null ? ` · eau ${Math.round(d.sst)} °C` : ''}</div></div>
+        <div class="score" style="--c:${col(d.score)}"><b>${d.score}</b><span>/100</span></div></summary>
+        <div class="fbody">
+          ${hourChart(d)}
+          <div class="grid2" style="margin-top:12px">
+            <div><p class="small muted" style="margin:0">Périodes majeures</p><b>${d.sol.major.map((p) => `${t(p.start)}–${t(p.end)}`).join(' · ') || '—'}</b></div>
+            <div><p class="small muted" style="margin:0">Périodes mineures</p><b>${d.sol.minor.map((p) => `${t(p.start)}–${t(p.end)}`).join(' · ') || '—'}</b></div>
+            <div><p class="small muted" style="margin:0">Soleil</p><b>${t(d.sol.sunrise)} · ${t(d.sol.sunset)}</b></div>
+            <div><p class="small muted" style="margin:0">Lune</p><b>${esc(d.sol.moon.label)} · ${d.sol.moon.illumination} %</b></div>
+            <div><p class="small muted" style="margin:0">Marée (modèle)</p><b>${d.tideEvents.length ? d.tideEvents.map((e) => `${e.type === 'high' ? 'PM' : 'BM'} ${t(e.t)}`).join(' · ') : '—'}</b></div>
+            <div><p class="small muted" style="margin:0">Rafales max</p><b>${d.gustMax != null ? Math.round(d.gustMax) + ' nds' : '—'}</b></div>
+          </div>
+        </div></details>`).join('');
+  };
+  render(loc);
+}
+function hourChart(d) {
+  const W = 340, H = 120, hs = d.hours; if (!hs.length) return '';
+  const x = (i) => 10 + (i / 23) * (W - 20);
+  const wmax = Math.max(25, ...hs.map((h) => h.wind || 0));
+  const tides = hs.map((h) => h.tide).filter((v) => v != null); const tmin = Math.min(...tides), tmax = Math.max(...tides);
+  const band = (p, cls) => { const a = p.start.getHours() + p.start.getMinutes() / 60, b = p.end.getHours() + p.end.getMinutes() / 60; if (b < a) return ''; return `<rect x="${x(Math.max(0, a))}" y="0" width="${Math.max(2, x(Math.min(23, b)) - x(Math.max(0, a)))}" height="${H - 18}" fill="${cls}"/>`; };
+  const wind = hs.map((h, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${(H - 20 - ((h.wind || 0) / wmax) * (H - 30)).toFixed(1)}`).join(' ');
+  const tide = tides.length > 2 ? hs.map((h, i) => (h.tide == null ? '' : `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${(H - 20 - ((h.tide - tmin) / Math.max(0.01, tmax - tmin)) * (H - 40)).toFixed(1)}`)).join(' ') : '';
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;margin-top:12px" role="img" aria-label="Vent et marée heure par heure">
+    ${d.sol.major.map((p) => band(p, 'rgba(226,112,58,.22)')).join('')}${d.sol.minor.map((p) => band(p, 'rgba(226,112,58,.1)')).join('')}
+    ${tide ? `<path d="${tide}" fill="none" stroke="#5B8DB8" stroke-width="2" stroke-dasharray="4 3"/>` : ''}
+    <path d="${wind}" fill="none" stroke="#0B1F33" stroke-width="2.2"/>
+    ${[0, 6, 12, 18, 23].map((h) => `<text x="${x(h)}" y="${H - 4}" font-size="9" fill="#4A5A6A" text-anchor="middle">${h}h</text>`).join('')}
+  </svg><p class="small muted" style="margin:4px 0 0">Trait plein : vent · pointillés : marée · bandes orange : périodes solunaires</p>`;
+}
+
+/* ---------------- Stats & profil des prises ---------------- */
+async function viewStats() {
+  const q = qs();
+  const [{ data: cs }, { data: lures }, { data: spots }] = await Promise.all([
+    sb.from('catches').select('*').eq('crew_id', S.crew.id).order('caught_at', { ascending: false }).limit(2000),
+    sb.from('lures').select('id, name').eq('crew_id', S.crew.id),
+    sb.from('spots').select('id, name').eq('crew_id', S.crew.id),
+  ]);
+  const all = cs || [];
+  const species = Object.entries(all.reduce((m, c) => ((m[c.species] = (m[c.species] || 0) + 1), m), {})).sort((a, b) => b[1] - a[1]);
+  const sel = q.sp || '';
+  const list = sel ? all.filter((c) => c.species === sel) : all;
+  const lureName = Object.fromEntries((lures || []).map((l) => [l.id, l.name]));
+  const spotName = Object.fromEntries((spots || []).map((s) => [s.id, s.name]));
+  const top = (arr) => Object.entries(arr.filter(Boolean).reduce((m, k) => ((m[k] = (m[k] || 0) + 1), m), {})).sort((a, b) => b[1] - a[1]);
+  const med = (arr) => { const a = arr.filter((v) => v != null && isFinite(v)).sort((x, y) => x - y); if (!a.length) return null; return a[Math.floor(a.length / 2)]; };
+  const rng = (arr) => { const a = arr.filter((v) => v != null && isFinite(v)).sort((x, y) => x - y); if (a.length < 3) return null; return [a[Math.floor(a.length * 0.2)], a[Math.floor(a.length * 0.8)]]; };
+  const hourBand = (c) => { const h = new Date(c.caught_at).getHours(); return h < 6 ? 'Nuit' : h < 9 ? 'Aube' : h < 12 ? 'Matin' : h < 16 ? 'Après-midi' : h < 20 ? 'Soir' : 'Nuit'; };
+  const moonCat = (c) => { const il = c.conditions?.moon?.illumination; if (il == null) return null; return il < 25 ? 'Lune noire' : il > 75 ? 'Pleine lune' : 'Quartiers'; };
+  const best = list.filter((c) => c.weight_kg).sort((a, b) => b.weight_kg - a.weight_kg)[0];
+  const wind = rng(list.map((c) => c.conditions?.wind_speed_10m)), sst = rng(list.map((c) => c.conditions?.sea_surface_temperature)), depth = rng(list.map((c) => +c.depth_m || null));
+  const months = Array.from({ length: 12 }, (_, i) => list.filter((c) => new Date(c.caught_at).getMonth() === i).length); const mmax = Math.max(1, ...months);
+  const card = (l, v) => `<div class="card" style="padding:12px"><p class="small muted" style="margin:0">${l}</p><b>${v || '—'}</b></div>`;
+  page(`<main class="screen">${topbar({ title: 'Stats', back: true })}
+    <div class="chips"><a class="chip ${!sel ? 'on' : ''}" href="#/stats">Toutes</a>${species.map(([s, n]) => `<a class="chip ${sel === s ? 'on' : ''}" href="#/stats?sp=${encodeURIComponent(s)}">${esc(s)} · ${n}</a>`).join('')}</div>
+    ${list.length ? `
+    <p class="kicker" style="margin:0">${sel ? `Profil · ${esc(sel)}` : 'Toute l’équipe'} · ${list.length} prise${list.length > 1 ? 's' : ''}</p>
+    <div class="grid2">
+      ${card('Plus grosse', best ? `${kg(best.weight_kg)} · ${esc(nameOf(best.angler_id || best.created_by))}` : null)}
+      ${card('Meilleur leurre', esc(top(list.map((c) => lureName[c.lure_id] || c.lure_name))[0]?.[0]))}
+      ${card('Meilleure technique', esc(top(list.map((c) => c.technique))[0]?.[0]))}
+      ${card('Meilleur moment', esc(top(list.map(hourBand))[0]?.[0]))}
+      ${card('Lune', esc(top(list.map(moonCat))[0]?.[0]))}
+      ${card('Meilleur spot', esc(top(list.map((c) => spotName[c.spot_id]))[0]?.[0]))}
+      ${card('Vent qui marche', wind ? `${Math.round(wind[0])}–${Math.round(wind[1])} nds` : null)}
+      ${card('Eau qui marche', sst ? `${Math.round(sst[0])}–${Math.round(sst[1])} °C` : null)}
+      ${card('Profondeur', depth ? `${Math.round(depth[0])}–${Math.round(depth[1])} m` : null)}
+      ${card('Relâchés', `${Math.round((list.filter((c) => c.released).length / list.length) * 100)} %`)}
+    </div>
+    <section class="card"><p class="kicker" style="margin:0 0 10px">Par mois</p><div class="months">${months.map((n, i) => `<div><span style="height:${Math.round((n / mmax) * 70)}px" title="${n}"></span><small>${'JFMAMJJASOND'[i]}</small></div>`).join('')}</div></section>
+    ${!sel ? `<section class="card"><p class="kicker" style="margin:0 0 6px">Espèces</p><div class="list">${species.slice(0, 10).map(([s, n]) => `<a class="list-item" href="#/stats?sp=${encodeURIComponent(s)}"><span class="grow"><b>${esc(s)}</b></span><span class="muted">${n}</span>${icon('chev', 18)}</a>`).join('')}</div></section>` : ''}
+    <p class="small muted" style="margin:0">Les plages « qui marchent » couvrent 60 % des prises enregistrées avec leurs conditions. Plus l’équipe note de prises, plus ces profils deviennent précis.</p>`
+    : `<div class="empty card">${icon('chart', 34)}<p>Pas encore de prise. Les stats se remplissent toutes seules à chaque poisson noté.</p></div>`}
+  </main>`, { tab: 'home' });
 }
 
 /* ---------------- Équipe ---------------- */
@@ -912,7 +1152,8 @@ async function viewCrew() {
     <section class="card"><p class="kicker" style="margin:0 0 8px">Inviter un ami</p><p class="muted small" style="margin:0 0 10px">Envoie le lien : il crée son compte et rejoint directement l’équipage.</p>
       <div class="row between" style="background:var(--sand);border-radius:12px;padding:10px 14px"><span class="h" style="font-size:22px;letter-spacing:.2em">${esc(S.crew.invite_code)}</span><button class="btn sm" id="inv">${icon('share', 16)}Envoyer le lien</button></div></section>
     <a class="btn ghost" href="#/trips">${icon('boat', 18)}Toutes les sorties</a>
-    <a class="btn ghost" href="#/gpx">${icon('sd', 18)}Import / export Solix (GPX)</a>
+    <a class="btn ghost" href="#/gpx">${icon('sd', 18)}Import / export (Humminbird, Garmin, Lowrance, Raymarine)</a>
+    <a class="btn ghost" href="#/stats">${icon('chart', 18)}Stats de l’équipe</a>
     <section class="card"><p class="kicker" style="margin:0 0 8px">Mon profil</p><form id="pf"><label class="f">Prénom<input name="name" required maxlength="40" value="${esc(S.profile?.display_name || '')}"></label><label class="f">Ma pêche (ex. Slow jig &amp; traîne)<input name="bio" maxlength="60" value="${esc(S.profile?.bio || '')}"></label><button class="btn">Enregistrer</button></form></section>
     <button class="btn dashed" id="newcrew">Rejoindre ou créer un autre équipage</button>
   </main>`, { tab: 'crew' });
@@ -938,7 +1179,7 @@ const routes = [
   [/^#\/gpx/, viewGPX], [/^#\/catch-new/, viewCatchForm], [/^#\/catch\/(.+)/, viewCatch],
   [/^#\/lures/, viewLures], [/^#\/lure-new/, () => viewLureForm()], [/^#\/lure\/(.+)/, viewLureForm],
   [/^#\/trips/, viewTrips], [/^#\/trip-new/, () => viewTripForm()], [/^#\/trip-edit\/(.+)/, viewTripForm], [/^#\/trip\/(.+)/, viewTrip],
-  [/^#\/crew/, viewCrew], [/^#\/reset/, viewReset],
+  [/^#\/crew/, viewCrew], [/^#\/reset/, viewReset], [/^#\/forecast/, viewForecast], [/^#\/stats/, viewStats],
 ];
 async function route() {
   if (!S.user) return viewAuth(location.hash.startsWith('#/signup') ? 'signup' : 'login');
