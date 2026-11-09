@@ -358,6 +358,6 @@ f.addEventListener('submit',function(e){e.preventDefault();m.className='acc-msg'
   else{m.textContent='Request sent. You will get your link by email as soon as it is accepted.';m.className='acc-msg ok';}})
  .catch(function(err){m.className='acc-msg err';m.textContent='Something went wrong, please try again. ('+err.message+')';})
  .finally(function(){b.disabled=false;b.textContent='Request access';});});
-if(location.hash==='#access'){var s=document.getElementById('access');if(s)setTimeout(function(){s.scrollIntoView();f.name.focus({preventScroll:true});},50);}
+if(location.hash==='#access'){var s=document.getElementById('access');var go=function(){s.scrollIntoView({behavior:'instant',block:'start'});};if(s){setTimeout(go,50);window.addEventListener('load',function(){setTimeout(go,100);});}}
 })();
 </script></body></html>
