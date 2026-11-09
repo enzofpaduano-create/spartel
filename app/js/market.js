@@ -49,6 +49,11 @@ export function market(ctx) {
     }
     return data;
   }
+  let cardOn = null;
+  async function cardEnabled() {
+    if (cardOn === null) { const { data } = await sb.from('settings').select('value').eq('key', 'card_payments').maybeSingle(); cardOn = data?.value === true; }
+    return cardOn;
+  }
   let stripeCfg = null;
   async function stripeConfig() {
     if (!stripeCfg) stripeCfg = await callStripe('config').catch(() => ({ enabled: false, fee_pct: 10 }));
@@ -96,10 +101,11 @@ export function market(ctx) {
     const shown = all.filter((o) => f === 'all' || (f === 'crew' ? o.visibility === 'crew' : f === 'mine' ? o.host_id === S.user.id : f === 'other' ? !['MA', 'ES'].includes(o.country) : o.country === f));
     await loadPeople(shown.map((o) => o.host_id));
     const seats = await seatsMap(shown.map((o) => o.id));
+    const card = await cardEnabled();
     const chip = (k, l) => `<a class="chip ${f === k ? 'on' : ''}" href="#/outings?f=${k}">${l}</a>`;
     page(`<main class="screen">${topbar({ right: `<a class="btn sun sm" href="#/outing-new">${icon('plus', 16)}Proposer</a>` })}
       <section class="card dark"><p class="kicker" style="color:var(--sun)">Sorties en mer</p><h1 class="h" style="font-size:22px;margin-top:4px">Réserve ta place à bord</h1>
-        <p class="small muted" style="margin:6px 0 0">Sorties entre amis ou avec un capitaine. Au Maroc tu paies le capitaine directement, ailleurs par carte sur Spartel.</p></section>
+        <p class="small muted" style="margin:6px 0 0">Sorties entre amis ou avec un capitaine. ${card ? 'Au Maroc tu paies le capitaine directement, ailleurs par carte sur Spartel.' : 'Tu réserves ici et tu paies le capitaine directement : espèces, virement ou acompte.'}</p></section>
       <div class="btn-row"><a class="btn ghost sm" href="#/bookings">${icon('clock', 16)}Mes réservations</a><a class="btn ghost sm" href="#/captain" style="position:relative">${icon('boat', 16)}Espace capitaine${pending ? `<span class="dotn">${pending}</span>` : ''}</a></div>
       <nav class="chips" aria-label="Filtrer">${chip('all', 'Toutes')}${chip('MA', 'Maroc')}${chip('ES', 'Espagne')}${chip('other', 'Ailleurs')}${chip('crew', 'Mon équipage')}${chip('mine', 'Les miennes')}</nav>
       <section class="ogrid">${shown.length ? shown.map((o) => outingCard(o, seats[o.id])).join('') : `<div class="empty card" style="grid-column:1/-1">${icon('boat', 34)}<p>Aucune sortie ouverte pour l’instant.<br>Propose la première : sortie entre amis ou sortie pro.</p><a class="btn sun sm" href="#/outing-new">Proposer une sortie</a></div>`}</section>
@@ -120,7 +126,7 @@ export function market(ctx) {
     await loadPeople([o.host_id, ...(bks || []).map((b) => b.client_id)]);
     const pics = photosOf(o).map(outPhoto);
     const cap = prof?.captain;
-    const mode = !o.price_cents ? 'none' : o.country === 'MA' ? 'offline' : 'card';
+    const mode = !o.price_cents ? 'none' : o.country === 'MA' || !(await cardEnabled()) ? 'offline' : 'card';
     const cfg = mode === 'card' ? await stripeConfig() : null;
     const payText = mode === 'none'
       ? 'Sortie entre amis : rien à payer sur Spartel. Les frais (essence, appâts) se partagent entre vous.'
@@ -175,7 +181,7 @@ export function market(ctx) {
       <form id="bf">${boat ? `<p class="small" style="margin:0">Bateau entier : ${o.seats_total} places pour ton groupe.</p>` : `<label class="f">Nombre de places<select name="seats">${Array.from({ length: max }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('')}</select></label>`}
         <label class="f">Message au capitaine<textarea name="note" maxlength="1000" placeholder="Niveau, matériel, questions…"></textarea></label>
         ${o.price_cents ? `<div class="row between" style="background:var(--sand);border-radius:12px;padding:12px 14px"><span class="muted" style="font-weight:600">Total</span><b class="h" id="tot" style="font-size:20px;color:var(--sun-dark)"></b></div>` : ''}
-        <p class="hint" style="margin:0">${!o.price_cents ? 'Le capitaine confirme ta place dans le chat.' : o.country === 'MA' ? 'Rien n’est payé maintenant. Une fois acceptée, vous fixez le paiement ensemble (espèces, virement, acompte).' : 'Rien n’est débité maintenant. Tu paies par carte une fois la demande acceptée.'}</p>
+        <p class="hint" style="margin:0">${!o.price_cents ? 'Le capitaine confirme ta place dans le chat.' : o.country === 'MA' || !cardOn ? 'Rien n’est payé maintenant. Une fois acceptée, vous fixez le paiement ensemble (espèces, virement, acompte).' : 'Rien n’est débité maintenant. Tu paies par carte une fois la demande acceptée.'}</p>
         <button class="btn sun">Envoyer la demande</button></form>`);
     const f = m.querySelector('#bf'), tot = m.querySelector('#tot');
     const upd = () => { if (tot) tot.textContent = money(boat ? o.price_cents : o.price_cents * (+f.seats?.value || 1), o.currency); };
@@ -197,6 +203,7 @@ export function market(ctx) {
       o = data;
     }
     const { data: cap } = await sb.from('captains').select('*').eq('user_id', S.user.id).maybeSingle();
+    const card = await cardEnabled();
     if (!id && cap) { o.country = cap.country; o.currency = cap.country === 'MA' ? 'MAD' : 'EUR'; o.boat_name = cap.boat_name; o.port = cap.home_port; }
     const start = o.start_at ? localDT(o.start_at) : (() => { const d = new Date(Date.now() + 3 * 86400e3); d.setHours(7, 0, 0, 0); return localDT(d); })();
     const sp = new Set(o.species || []);
@@ -217,7 +224,7 @@ export function market(ctx) {
             <label class="f" style="flex:.7">Devise<select name="currency"><option ${o.currency === 'MAD' ? 'selected' : ''}>MAD</option><option ${o.currency === 'EUR' ? 'selected' : ''}>EUR</option></select></label></div>
           <div class="chips" id="unit"><button type="button" class="chip ${o.price_unit === 'person' ? 'on' : ''}" data-u="person">Par personne</button><button type="button" class="chip ${o.price_unit === 'boat' ? 'on' : ''}" data-u="boat">Bateau entier</button></div>
           <div id="ma" style="display:flex;flex-direction:column;gap:10px">
-            <p class="small" style="margin:0">Au Maroc, le client te paie directement. Choisis ce que tu acceptes :</p>
+            <p class="small" style="margin:0">Le client te paie directement, en dehors de Spartel. Choisis ce que tu acceptes :</p>
             <label class="switch">Espèces sur place<input type="checkbox" name="cash" ${o.pay_cash ? 'checked' : ''}></label>
             <label class="switch">Virement bancaire<input type="checkbox" name="transfer" ${o.pay_transfer ? 'checked' : ''}></label>
             <label class="f">Acompte demandé (%)<input name="deposit" type="number" min="0" max="100" step="5" value="${o.deposit_pct}"></label></div>
@@ -246,13 +253,13 @@ export function market(ctx) {
     toggle('#vis', 'vis', 'v'); toggle('#unit', 'unit', 'u');
     $app.querySelectorAll('#sp .chip').forEach((c) => (c.onclick = () => c.classList.toggle('on')));
     const refresh = () => {
-      const ma = f.country.value === 'MA', paid = +f.price.value > 0;
+      const ma = f.country.value === 'MA', off = ma || !card, paid = +f.price.value > 0;
       if (!ma) f.currency.value = 'EUR';
       f.currency.disabled = !ma;
-      $app.querySelector('#ma').hidden = !(ma && paid);
+      $app.querySelector('#ma').hidden = !(off && paid);
       $app.querySelector('#unit').hidden = !paid;
       const cn = $app.querySelector('#cardnote');
-      cn.innerHTML = !ma && paid ? `${icon('lock', 14)} Paiement par carte sur Spartel. ${cap?.stripe_ready ? 'Tes paiements sont actifs.' : cap?.country === 'MA' ? 'Pour encaisser hors du Maroc, indique ce pays dans ton <a href="#/captain">profil capitaine</a> puis active Stripe.' : 'Active-les dans l’<a href="#/captain">espace capitaine</a> pour encaisser.'}` : '';
+      cn.innerHTML = !off && paid ? `${icon('lock', 14)} Paiement par carte sur Spartel. ${cap?.stripe_ready ? 'Tes paiements sont actifs.' : cap?.country === 'MA' ? 'Pour encaisser hors du Maroc, indique ce pays dans ton <a href="#/captain">profil capitaine</a> puis active Stripe.' : 'Active-les dans l’<a href="#/captain">espace capitaine</a> pour encaisser.'}` : '';
       const pn = $app.querySelector('#pubnote');
       pn.innerHTML = st.vis === 'crew' ? 'Seuls les membres de ton équipage la verront.' : 'Visible par tous les membres de Spartel.';
       $app.querySelector('#phreq').textContent = paid ? '(au moins une)' : '(facultatif)';
@@ -263,12 +270,12 @@ export function market(ctx) {
       e.preventDefault();
       const btn = f.querySelector('[type=submit]'); btn.disabled = true;
       try {
-        const ma = f.country.value === 'MA', price = Math.round((+f.price.value || 0) * 100);
+        const ma = f.country.value === 'MA', off = ma || !card, price = Math.round((+f.price.value || 0) * 100);
         const row = {
           title: f.title.value.trim(), country: f.country.value, port: f.port.value.trim(),
           start_at: new Date(f.start.value).toISOString(), duration_h: +f.dur.value, seats_total: +f.seats.value,
           boat_name: f.boat.value.trim() || null, price_cents: price, currency: ma ? f.currency.value : 'EUR', price_unit: price ? st.unit : 'person',
-          pay_cash: ma ? f.cash.checked : false, pay_transfer: ma ? f.transfer.checked : false, deposit_pct: ma && price ? Math.min(100, Math.max(0, +f.deposit.value || 0)) : 0,
+          pay_cash: off ? f.cash.checked : false, pay_transfer: off ? f.transfer.checked : false, deposit_pct: off && price ? Math.min(100, Math.max(0, +f.deposit.value || 0)) : 0,
           species: [...$app.querySelectorAll('#sp .chip.on')].map((c) => c.dataset.s), technique: f.technique.value || null,
           includes: f.includes.value.trim() || null, description: f.desc.value.trim() || null,
           visibility: st.vis, crew_id: S.crew?.id || null,
@@ -477,6 +484,7 @@ export function market(ctx) {
     ]);
     const c = cap || { country: 'MA' };
     const seats = await seatsMap((outs || []).map((o) => o.id));
+    const card = await cardEnabled();
     page(`<main class="screen">${topbar({ title: 'Espace capitaine', back: true })}
       ${pending ? `<a class="banner" href="#/bookings?t=host" style="text-decoration:none"><span>${pending} nouvelle${pending > 1 ? 's' : ''} demande${pending > 1 ? 's' : ''}</span>${icon('chev', 18)}</a>` : ''}
       <section class="card dark"><p class="kicker" style="color:var(--sun)">Propose tes sorties</p><p style="margin:6px 0 12px">Publie une sortie avec les photos de ton bateau et une description, fixe ton prix et réponds aux demandes dans le chat.</p><a class="btn sun sm" href="#/outing-new">${icon('plus', 14)}Proposer une sortie</a></section>
@@ -490,7 +498,7 @@ export function market(ctx) {
         <button class="btn">Enregistrer</button></form>
     </main>`, { tab: 'outings' });
     const f = $app.querySelector('#cf');
-    const syncBank = () => { $app.querySelector('#bankf').hidden = f.country.value !== 'MA'; };
+    const syncBank = () => { $app.querySelector('#bankf').hidden = card && f.country.value !== 'MA'; };
     f.country.onchange = syncBank; syncBank();
     f.onsubmit = async (e) => {
       e.preventDefault();
@@ -504,6 +512,7 @@ export function market(ctx) {
   }
   async function payBox(cap) {
     const el = $app.querySelector('#paybox'); if (!el) return;
+    if (!(await cardEnabled())) { el.innerHTML = `<p class="kicker" style="margin:0">Encaisser</p><p class="small" style="margin:6px 0 0">Tes clients te paient directement : espèces sur place, virement, acompte. Rien ne passe par Spartel. Tu fixes les modalités dans le chat de chaque réservation et tu peux y partager ton RIB.</p>`; return; }
     if (!cap) { el.innerHTML = `<p class="kicker" style="margin:0">Encaisser</p><p class="small muted" style="margin:6px 0 0">Au Maroc, tes clients te paient directement (espèces, virement, acompte). En Espagne et ailleurs, ils paient par carte sur Spartel et l’argent arrive sur ton compte Stripe : choisis ton pays ci-dessous et enregistre pour l’activer.</p>`; return; }
     if (cap.country === 'MA') { el.innerHTML = `<p class="kicker" style="margin:0">Encaisser au Maroc</p><p class="small" style="margin:6px 0 0">Tes clients te paient directement : espèces sur place, virement, acompte. Rien ne passe par Spartel. Tu fixes les modalités dans le chat de chaque réservation et tu peux y partager ton RIB.</p>`; return; }
     const cfg = await stripeConfig();
