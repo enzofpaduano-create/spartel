@@ -4,44 +4,233 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Spartel — The future fishing media</title>
-<meta name="description" content="Films, photos and field notes from a crew fishing where the Atlantic meets the Mediterranean. Founded in Barcelona, June 2026.">
-<meta property="og:title" content="Spartel — The future fishing media"><meta property="og:description" content="Films, photos and field notes from a crew fishing where the Atlantic meets the Mediterranean. Founded in Barcelona, June 2026."><meta property="og:image" content="assets/og.png">
-<meta name="theme-color" content="#08131F">
-<link rel="icon" type="image/png" href="assets/favicon.png"><link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="description" content="Spartel is the future fishing media: films, photos and field notes from where the Atlantic meets the Mediterranean. Founded in Barcelona, June 2026.">
+<meta property="og:title" content="Spartel — The future fishing media">
+<meta property="og:description" content="Offshore stories from where the Atlantic meets the Mediterranean. Founded in Barcelona, June 2026.">
+<meta property="og:image" content="assets/og.png">
+<meta name="theme-color" content="#0B1F33">
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link href="assets/site.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script>if(location.search.includes('join='))location.replace('app/'+location.search);</script>
+<style>
+:root{--navy:#0B1F33;--sand:#F1ECE2;--sun:#E2703A;--sun-d:#B9531F;--muted:#4A5A6A;--line:#DED7CA;--h:"Archivo",system-ui,sans-serif;--b:"Inter",system-ui,sans-serif}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:#FBF9F5;color:var(--navy);font:15px/1.5 var(--b)}
+a{color:inherit}
+.h{font-family:var(--h);font-stretch:125%;font-weight:800;letter-spacing:.02em;text-transform:uppercase;margin:0}
+.wrap{max-width:935px;margin:0 auto;padding:0 20px}
+header.top{position:sticky;top:0;z-index:20;background:rgba(251,249,245,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.top .wrap{display:flex;align-items:center;justify-content:space-between;height:64px;gap:12px}
+header.top img{height:30px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;font:700 14px var(--b);text-decoration:none;border:none;cursor:pointer}
+.btn.p{background:var(--sun);color:#fff}.btn.d{background:var(--navy);color:#fff}.btn.g{background:#EFEAE0;color:var(--navy)}
+.btn:hover{filter:brightness(.95)}
+.profile{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"av head" "av bio";gap:8px 72px;align-items:start;padding:40px 0 28px}
+.profile .avatar{grid-area:av;align-self:center}.profile .head{grid-area:head}.profile .bio{grid-area:bio}
+.avatar{width:170px;height:170px;border-radius:50%;padding:5px;background:conic-gradient(from 200deg,var(--sun),#F2B07A,var(--navy),var(--sun));}
+.avatar img{width:100%;height:100%;border-radius:50%;background:var(--sand);border:5px solid #FBF9F5;display:block}
+.prow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.prow h1{font:600 22px var(--b);margin:0 8px 0 0}
+.stats{display:flex;gap:36px;margin:20px 0;padding:0;list-style:none}
+.stats b{font-weight:700}
+.bio p{margin:0}.bio .name{font-weight:700}.bio .cat{color:var(--muted)}
+.bio .loc{color:var(--sun-d);font-weight:600}
+.hls{display:flex;gap:28px;overflow-x:auto;padding:8px 0 28px;scrollbar-width:none}.hls::-webkit-scrollbar{display:none}
+.hl{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;color:var(--navy);flex:none}
+.ring{width:84px;height:84px;border-radius:50%;padding:3px;border:1px solid var(--line);display:block}
+.in{width:100%;height:100%;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.in svg{display:block}
+.in.navy{background:var(--navy)}.in.sand{background:var(--sand)}.in.sun{background:var(--sun)}.in.white{background:#fff;border:1px solid var(--line)}
+.in .mini{font:800 13px var(--h);font-stretch:125%;color:#fff;letter-spacing:.05em}
+.lbl{font:600 12px var(--b)}
+.tabs{display:flex;justify-content:center;gap:56px;border-top:1px solid var(--line)}
+.tabs a{display:flex;align-items:center;gap:6px;height:52px;font:600 12px var(--b);letter-spacing:.1em;text-transform:uppercase;text-decoration:none;color:var(--muted);border-top:1px solid transparent;margin-top:-1px}
+.tabs a.on{color:var(--navy);border-top-color:var(--navy)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.post{border:none;padding:0;cursor:pointer;aspect-ratio:1;position:relative;overflow:hidden;font:inherit;color:inherit;container-type:inline-size}
+.post .tile{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6%;padding:10%;text-align:center;transition:transform .35s}
+.post:hover .tile{transform:scale(1.04)}
+.post::after{content:"";position:absolute;inset:0;background:rgba(11,31,51,0);transition:background .2s}
+.post:hover::after{background:rgba(11,31,51,.12)}
+.post.navy{background:var(--navy);color:var(--sand)}.post.sand{background:var(--sand);color:var(--navy)}.post.sun{background:var(--sun);color:#fff}.post.white{background:#fff;color:var(--navy);outline:1px solid var(--line);outline-offset:-1px}
+.tile p{margin:0}
+.t-xl{font:800 9.4cqw/1.05 var(--h);font-stretch:125%}
+.t-lg{font:800 7.6cqw/1.08 var(--h);font-stretch:125%}
+.t-md{font:800 6.4cqw/1.1 var(--h);font-stretch:125%}
+.t-sm{font:700 max(9px,4.6cqw) var(--b);letter-spacing:.12em}
+.t-xs{font:500 max(9px,4.2cqw) var(--b);opacity:.8}
+.kick{font:700 max(8px,3.8cqw) var(--b);letter-spacing:.16em;color:var(--sun)}
+.post.sun .kick{color:var(--navy)}
+.tile .wm{width:72%}
+.art{display:flex;align-items:center;justify-content:center;width:72%;height:52%;flex:0 1 auto;min-height:0}
+.art svg{width:100%;height:100%;display:block}
+.art .badge{width:100%}
+.art.lure{width:40%;height:40%;color:var(--navy)}
+.art.lure svg{width:100%;height:100%}
+.phone{width:42%;aspect-ratio:9/17;border-radius:16%/8%;background:var(--navy);padding:6%}
+.phone .scr{width:100%;height:100%;border-radius:12%/6%;background:var(--sand);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:8%;padding:14% 10%}
+.phone .scr img{width:40%}.phone .scr p{font:800 clamp(7px,1.2vw,11px) var(--h);font-stretch:125%;margin:0}
+.phone .scr span{display:block;width:100%;height:12%;border-radius:6px;background:#fff}.phone .scr span.s{background:var(--sun);height:9%;width:60%}
+section.block{padding:72px 0;border-top:1px solid var(--line)}
+.kicker{font:700 12px var(--b);letter-spacing:.14em;text-transform:uppercase;color:var(--sun-d);margin:0 0 10px}
+.two{display:grid;grid-template-columns:1.1fr .9fr;gap:48px;align-items:start}
+.lead{font-size:19px;line-height:1.55;margin:16px 0}
+.eps{list-style:none;padding:0;margin:24px 0 0;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.eps li{background:var(--navy);color:var(--sand);border-radius:16px;padding:18px;min-height:140px;display:flex;flex-direction:column;justify-content:space-between}
+.eps li b{font:800 15px/1.2 var(--h);font-stretch:125%;text-transform:uppercase}
+.eps li span{font:700 11px var(--b);letter-spacing:.14em;color:var(--sun)}
+.values{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:28px}
+.values div{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px}
+.values b{display:block;font:800 15px/1.2 var(--h);font-stretch:125%;text-transform:uppercase;margin-bottom:8px}
+.values p{margin:0;color:var(--muted);font-size:14px}
+.tl{list-style:none;padding:0;margin:0;border-left:2px solid var(--line)}
+.tl li{position:relative;padding:0 0 22px 22px}
+.tl li::before{content:"";position:absolute;left:-7px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--sun)}
+.tl li.next::before{background:#fff;border:2px solid var(--sun)}
+.tl b{display:block;font:700 12px var(--b);letter-spacing:.12em;text-transform:uppercase;color:var(--sun-d)}
+.tl p{margin:4px 0 0}
+.app{background:var(--navy);color:var(--sand);border-radius:28px;padding:48px;display:grid;grid-template-columns:1fr auto;gap:40px;align-items:center}
+.app ul{padding:0;margin:20px 0 28px;list-style:none;display:grid;gap:10px}
+.app li{display:flex;gap:10px;align-items:flex-start}.app li::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--sun);margin-top:8px}
+.app .phone{width:200px}
+.app .cta{display:flex;gap:10px;flex-wrap:wrap}
+footer{padding:40px 0 60px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:center}
+.modal{position:fixed;inset:0;z-index:50;background:rgba(11,31,51,.72);display:none;align-items:center;justify-content:center;padding:20px}
+.modal.open{display:flex}
+.mbox{background:#fff;border-radius:6px;overflow:hidden;display:grid;grid-template-columns:minmax(0,560px) 320px;max-width:880px;width:100%;max-height:90vh}
+.mbox .media{aspect-ratio:1;position:relative}
+.mbox .media .post{position:absolute;inset:0;cursor:default;pointer-events:none}
+.mbox .side{display:flex;flex-direction:column}
+.mbox .who{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);font-weight:700}
+.mbox .who img{width:34px;height:34px;border-radius:50%;background:var(--sand)}
+.mbox .cap{padding:16px;flex:1;overflow:auto}
+.mbox .cap p{margin:0 0 10px}.mbox .cap .tag{color:#2B5A88}
+.mbox .act{padding:14px 16px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}
+.x{position:fixed;top:14px;right:18px;background:none;border:none;color:#fff;font-size:30px;cursor:pointer;width:48px;height:48px;z-index:51}
+.story{width:min(420px,100%);aspect-ratio:9/16;max-height:88vh;border-radius:14px;background:var(--navy);color:var(--sand);padding:28px;display:flex;flex-direction:column;justify-content:flex-end;gap:14px;position:relative;overflow:hidden}
+.story .bar{position:absolute;top:14px;left:14px;right:14px;height:3px;background:rgba(241,236,226,.3);border-radius:2px;overflow:hidden}
+.story .bar i{display:block;height:100%;width:0;background:var(--sand)}
+.story.play .bar i{animation:fill 6s linear forwards}
+@keyframes fill{to{width:100%}}
+.story.sand{background:var(--sand);color:var(--navy)}.story.white{background:#fff;color:var(--navy)}.story.sun{background:var(--sun);color:var(--navy)}
+.story.sand .bar i,.story.white .bar i,.story.sun .bar i{background:var(--navy)}.story.sand .bar,.story.white .bar,.story.sun .bar{background:rgba(11,31,51,.2)}
+.story .art2{position:absolute;inset:60px 40px 45%;display:flex;align-items:center;justify-content:center}
+.story .art2 img{max-height:100%}
+.story .art2 svg,.story .art2 img,.story .art2 span{width:60%!important;height:auto!important;max-height:100%}
+.story .art2 .mini{font-size:48px}
+.story p{margin:0;font-size:17px}
+@media (max-width:760px){
+ .profile{grid-template-areas:"av head" "bio bio";gap:16px 20px;padding:20px 0}
+ .avatar{width:86px;height:86px;padding:3px}.avatar img{border-width:3px}
+ .prow h1{font-size:18px}
+ .stats{gap:20px;margin:10px 0 0;font-size:14px}
+ .hls{gap:16px}.ring{width:66px;height:66px}
+ .tabs{gap:28px}
+ .grid{gap:3px}.wrap.gridwrap{padding:0}
+ .two,.app{grid-template-columns:1fr}.app{padding:28px;border-radius:20px}.app .phone{display:none}
+ .eps,.values{grid-template-columns:1fr}
+ section.block{padding:48px 0}
+ .mbox{grid-template-columns:1fr;max-height:92vh;overflow:auto}
+ header.top .btn.g{display:none}
+}
+.hero{background:var(--navy);color:var(--sand);overflow:hidden}
+.hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center;padding-top:64px;padding-bottom:0}
+.hero h1{font:800 clamp(34px,5.6vw,60px)/1.02 var(--h);font-stretch:125%;text-transform:uppercase;margin:12px 0 18px}
+.hero h1 em{font-style:normal;color:var(--sun)}
+.hero .sub{font-size:18px;color:#C9D3DC;max-width:520px;margin:0 0 28px}
+.hero .cta{display:flex;gap:10px;flex-wrap:wrap}
+.hero .btn.g{background:#1C3550;color:var(--sand)}
+.hero .note{font-size:13px;color:#9FB0C0;margin:16px 0 64px}
+.phones{position:relative;height:560px}
+.dev{position:absolute;width:250px;border-radius:38px;background:#050F1A;padding:10px;box-shadow:0 30px 60px rgba(0,0,0,.35)}
+.dev img{width:100%;height:auto;border-radius:29px;display:block;aspect-ratio:390/844}
+.phones .d1{left:4%;top:40px;transform:rotate(-6deg)}.phones .d2{right:2%;top:0;z-index:2;transform:rotate(4deg)}
+.feat{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;padding:56px 0;border-bottom:1px solid var(--line)}
+.feat:last-of-type{border-bottom:none}
+.feat.rev .ftext{order:2}
+.feat .dev{position:relative;margin:0 auto;width:260px}
+.feat h3{font:800 clamp(24px,3.6vw,34px)/1.08 var(--h);font-stretch:125%;text-transform:uppercase;margin:8px 0 14px}
+.feat p{color:var(--muted);font-size:16px;margin:0 0 12px}
+.feat ul{padding-left:18px;margin:0;color:var(--navy)}.feat li{margin:6px 0}
+.minis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:20px}
+.minis div{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px}
+.minis b{display:block;font:800 14px/1.2 var(--h);font-stretch:125%;text-transform:uppercase;margin-bottom:6px}
+.minis p{margin:0;color:var(--muted);font-size:14px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:24px;counter-reset:st}
+.steps div{background:var(--sand);border-radius:16px;padding:20px;counter-increment:st}
+.steps div::before{content:counter(st);display:inline-flex;width:34px;height:34px;border-radius:50%;background:var(--sun);color:#fff;font:800 15px var(--b);align-items:center;justify-content:center;margin-bottom:12px}
+.steps b{display:block;margin-bottom:4px}.steps p{margin:0;color:var(--muted);font-size:14px}
+.media-intro{padding-top:56px}
+@media (max-width:760px){
+ .hero .wrap{grid-template-columns:1fr;padding-top:36px}
+ .phones{height:420px}.dev{width:190px;border-radius:30px;padding:8px}.dev img{border-radius:23px}
+ .phones .d1{left:2%;top:30px}.phones .d2{right:2%}
+ .hero .note{margin-bottom:28px}
+ .feat{grid-template-columns:1fr;gap:28px;padding:40px 0}.feat.rev .ftext{order:0}
+ .feat .dev{width:230px}
+ .minis,.steps{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}html{scroll-behavior:auto}}
+</style>
+<style>
+.top nav a.cur{background:var(--navy);color:#fff}
+.pagehead{padding:56px 0 8px}
+.pagehead h1{font-size:clamp(34px,6vw,64px)}
+.hl{scroll-margin-top:80px}
+@media (max-width:760px){.top nav .lk{display:none}}
+</style>
 </head>
-<body><section class="hero">
-<figure class="vis fill" data-photo="Hero — sunrise on the water, wide"><svg class="art" viewBox="-400 -330 800 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect x="-400" y="-330" width="800" height="560" fill="#0B1F33"/><defs><clipPath id="sh"><circle r="230"/></clipPath></defs><g clip-path="url(#sh)"><circle r="230" fill="#E2703A"/><rect x="-300" y="20.0" width="600" height="5.0" fill="#0B1F33"/><rect x="-300" y="52.6" width="600" height="8.4" fill="#0B1F33"/><rect x="-300" y="82.4" width="600" height="11.8" fill="#0B1F33"/><rect x="-300" y="109.4" width="600" height="15.2" fill="#0B1F33"/><rect x="-300" y="133.6" width="600" height="18.6" fill="#0B1F33"/><rect x="-300" y="155.0" width="600" height="22.0" fill="#0B1F33"/><rect x="-300" y="173.6" width="600" height="25.4" fill="#0B1F33"/><rect x="-300" y="189.4" width="600" height="28.8" fill="#0B1F33"/></g><rect x="-400" y="228" width="800" height="3" fill="#F1ECE2" opacity=".5"/><g transform="translate(10 -20) rotate(-26) scale(0.62)"><path d="M-330 0 C-250 -70 -80 -105 60 -95 C150 -88 230 -55 270 -22 L330 -95 L310 0 L330 95 L270 22 C230 55 150 88 60 95 C-80 105 -250 70 -330 0 Z M-20 -95 L60 -175 L90 -92 Z M-10 95 L60 165 L80 92 Z" fill="#08131F" stroke="#0B1F33" stroke-width="16" paint-order="stroke"/></g></svg></figure>
-<div class="scrim"></div>
-<header class="nav overlay"><div class="w nav-in"><a class="logo" href="" aria-label="Spartel, home"><img class="on-dark" src="assets/wordmark-white.svg" alt="Spartel"><img class="on-light" src="assets/wordmark.svg" alt="Spartel"></a><nav class="links" aria-label="Main"><a href="journal/">Journal</a><a href="the-app/">The App</a><a href="crew/">Crew</a></nav><div class="acts"><a class="lnk" href="app/">Log in</a><a class="btn sm" href="app/#/signup">Join the crew</a><button class="menu" aria-label="Menu" aria-expanded="false"><span></span><span></span></button></div></div><div class="drawer"><div class="w"><a href="journal/">Journal</a><a href="the-app/">The App</a><a href="crew/">Crew</a><a href="app/">Log in</a><a href="app/#/signup">Join the crew</a></div></div></header>
-<div class="w hero-in">
- <p class="cap sun">Nº 01 — Cap Spartel · 35°47′N 5°55′W</p>
- <h1 class="h mega">The future<br>fishing media</h1>
- <div class="hero-bar"><p>Films, photos and field notes from a crew fishing where the Atlantic meets the Mediterranean.</p><p class="cap">Founded in Barcelona · June 2026</p></div>
-</div></section>
-<main>
-<section class="sec"><div class="w">
- <div class="row-head"><h2 class="h h2">Latest from the water</h2><a class="cap" href="journal/">All stories →</a></div>
- <div class="latest">
-  <a class="story big" href="journal/#sessions"><figure class="vis r45" data-photo="Session 01 cover — boat leaving at first light"><svg class="art" viewBox="-400 -330 800 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect x="-400" y="-330" width="800" height="560" fill="#0B1F33"/><path d="M-30 -125 L-400 -175 L-400 -95 Z M30 -125 L400 -175 L400 -95 Z" fill="#E2703A" opacity=".22"/><g transform="translate(0 170) scale(0.5)"><path fill-rule="evenodd" d="M-70 0 L-52 -330 L52 -330 L70 0 Z M-88 -330 H88 V-372 H-88 Z M-50 -372 H50 V-470 H-50 Z M-62 -470 Q0 -560 62 -470 Z M-6 -550 H6 V-600 H-6 Z M-30 -385 H30 V-457 H-30 Z" fill="#F1ECE2"/></g><rect x="-400" y="170" width="800" height="2" fill="#F1ECE2" opacity=".35"/></svg></figure><span class="cap sun">Spartel Sessions · Season 01</span><span class="h st">Cap Spartel at dawn</span><span class="mist">One boat, four friends, the first drift of the season off the lighthouse.</span></a>
-  <div class="stack">
-   <a class="story " href="journal/#species"><figure class="vis r1610" data-photo="A bluefin alongside the boat"><svg class="art" viewBox="-400 -280 800 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect x="-400" y="-280" width="800" height="560" fill="#F1ECE2"/><g transform="rotate(-8) scale(0.9)"><path d="M-330 0 C-250 -70 -80 -105 60 -95 C150 -88 230 -55 270 -22 L330 -95 L310 0 L330 95 L270 22 C230 55 150 88 60 95 C-80 105 -250 70 -330 0 Z M-20 -95 L60 -175 L90 -92 Z M-10 95 L60 165 L80 92 Z" fill="#0B1F33"/></g></svg></figure><span class="cap sun">Species file 01</span><span class="h st">Bluefin tuna</span><span class="mist">Every year it crosses the strait. Every year we try to be there.</span></a>
-   <a class="story " href="journal/#notes"><figure class="vis r1610" data-photo="Night sky over the water"><svg class="art" viewBox="-400 -280 800 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect x="-400" y="-280" width="800" height="560" fill="#0B1F33"/><circle cx="0" cy="-110" r="70" fill="none" stroke="#F1ECE2" stroke-width="2" opacity=".7"/><path d="M0 -180 A70 70 0 0 1 0 -40 A50 70 0 0 0 0 -180Z" fill="#F1ECE2" opacity=".85"/><path d="M-400 120 q50 -10 100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0" stroke="#F1ECE2" stroke-width="2" fill="none" opacity="0.50"/><path d="M-400 148 q50 -10 100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0" stroke="#F1ECE2" stroke-width="2" fill="none" opacity="0.40"/><path d="M-400 176 q50 -10 100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0" stroke="#F1ECE2" stroke-width="2" fill="none" opacity="0.30"/><path d="M-400 204 q50 -10 100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0" stroke="#F1ECE2" stroke-width="2" fill="none" opacity="0.20"/></svg></figure><span class="cap sun">Field note</span><span class="h st">New moon, big tides</span><span class="mist">Why the dark nights are the busy ones on the rocks.</span></a>
+<body>
+<header class="top"><div class="wrap"><a href="" aria-label="Spartel"><img src="assets/wordmark.svg" alt="Spartel"></a><nav style="display:flex;gap:8px;align-items:center"><a class="btn g lk cur" href="" aria-current="page">Posts</a><a class="btn g lk" href="the-app/">The app</a><a class="btn g lk" href="sessions/">Sessions</a><a class="btn g lk" href="about/">About</a><a class="btn d" href="app/">Log in</a></nav></div></header>
+<main id="top"><div class="wrap" id="media">
+ <section class="profile" aria-label="Profil Spartel">
+  <div class="avatar"><img src="assets/badge.svg" alt="Badge Spartel Crew"></div>
+  <div class="head">
+   <div class="prow"><h1>spartel</h1><a class="btn p" href="app/#/signup">Join the crew</a><a class="btn g" href="app/">Log in</a></div>
+   <ul class="stats"><li><b>2</b> seas</li><li><b>1</b> lighthouse</li><li><b>0</b> spots shared</li></ul>
   </div>
- </div>
-</div></section>
-<section class="sec sand"><div class="w stmt">
- <p class="h giant">Share stories,<br>not <em>coordinates.</em></p>
- <div class="side"><p class="cap rust">Our only rule</p><p class="lead">We show everything: the fish, the gear, the sunrise, the misses. Never the waypoint. A spot belongs to the people who found it.</p></div>
-</div></section>
-<section class="teaser"><div class="w split">
- <div class="tx"><p class="cap sun">The crew app</p><h2 class="h h1">Every spot. Every catch. Kept in the crew.</h2>
-  <p class="lead soft">Our own app logs every catch with its lure, depth, wind and moon, and keeps every spot private until you share it.</p>
-  <div class="ctas"><a class="btn" href="the-app/">Discover the app</a><a class="btn ghost" href="app/">Log in</a></div></div>
- <div class="phones"><div class="dev t1"><img src="assets/screens/map.webp" alt="Carte des spots dans l’appli Spartel" width="390" height="844"></div><div class="dev t2"><img src="assets/screens/crew.webp" alt="Page équipage dans l’appli Spartel" width="390" height="844"></div></div>
-</div></section>
-</main>
-<footer class="foot"><div class="w"><div class="fgrid"><img src="assets/badge.svg" alt="Badge Spartel Crew" class="fbadge"><div><p class="cap mist">Spartel</p><a href="journal/">Journal</a><a href="the-app/">The App</a><a href="crew/">Crew</a></div><div><p class="cap mist">The crew</p><a href="app/">Log in</a><a href="app/#/signup">Join the crew</a></div><div><p class="cap mist">Where</p><p>Barcelona · Tangier</p><p>Atlantic · Mediterranean</p></div></div><div class="fbar cap mist"><span>Founded in Barcelona · June 2026</span><span>Share stories, not coordinates.</span><span>35°47′N 5°55′W</span></div></div></footer><script src="assets/site.js"></script></body></html>
+  <div class="bio">
+   <p class="name">SPARTEL · The future fishing media</p>
+   <p class="cat">Media · Offshore fishing</p>
+   <p>Films, photos and field notes from where the Atlantic meets the Mediterranean.</p>
+   <p>Share stories, not coordinates.</p>
+   <p class="loc">Founded in Barcelona · June 2026 · 35°47'N 5°55'W</p>
+  </div>
+ </section>
+ <div class="hls" role="list"><button class="hl" data-h="0"><span class="ring"><span class="in navy"><svg viewBox="-100 -610 200 620" height="34" aria-hidden="true"><path fill-rule="evenodd" d="M-70 0 L-52 -330 L52 -330 L70 0 Z M-88 -330 H88 V-372 H-88 Z M-50 -372 H50 V-470 H-50 Z M-62 -470 Q0 -560 62 -470 Z M-6 -550 H6 V-600 H-6 Z M-30 -385 H30 V-457 H-30 Z" fill="#F1ECE2"/></svg></span></span><span class="lbl">Spots</span></button><button class="hl" data-h="1"><span class="ring"><span class="in sand"><svg viewBox="-360 -200 720 400" width="46" aria-hidden="true"><g transform="rotate(-10)"><path d="M-330 0 C-250 -70 -80 -105 60 -95 C150 -88 230 -55 270 -22 L330 -95 L310 0 L330 95 L270 22 C230 55 150 88 60 95 C-80 105 -250 70 -330 0 Z M-20 -95 L60 -175 L90 -92 Z M-10 95 L60 165 L80 92 Z" fill="#0B1F33"/></g></svg></span></span><span class="lbl">Tuna</span></button><button class="hl" data-h="2"><span class="ring"><span class="in white"><span style="width:30px;height:30px;color:#0B1F33"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12c3-5 9-6 14-3-2 5-8 7-14 3z"/><circle cx="15" cy="10" r="1"/><path d="M5 12l-2 3M19 9l2-1"/><path d="M8 15v3a2 2 0 0 0 3 1"/></svg></span></span></span><span class="lbl">Jigging</span></button><button class="hl" data-h="3"><span class="ring"><span class="in sun"><svg viewBox="-100 -610 200 620" height="34" aria-hidden="true"><path fill-rule="evenodd" d="M-70 0 L-52 -330 L52 -330 L70 0 Z M-88 -330 H88 V-372 H-88 Z M-50 -372 H50 V-470 H-50 Z M-62 -470 Q0 -560 62 -470 Z M-6 -550 H6 V-600 H-6 Z M-30 -385 H30 V-457 H-30 Z" fill="#0B1F33"/></svg></span></span><span class="lbl">Sessions</span></button><button class="hl" data-h="4"><span class="ring"><span class="in sand"><img src="assets/symbol.svg" alt="" style="width:40px"></span></span><span class="lbl">Crew</span></button><button class="hl" data-h="5"><span class="ring"><span class="in navy"><span class="mini">APP</span></span></span><span class="lbl">App</span></button></div>
+</div>
+<nav class="tabs" aria-label="Sections"><a class="on" href="#posts" aria-current="page">Posts</a><a href="sessions/">Sessions</a><a href="about/">About</a><a href="the-app/">App</a></nav>
+<div class="wrap gridwrap" id="posts"><div class="grid"><button class="post navy" data-i="0" aria-label="Voir la publication 1"><div class="tile"><img src="assets/wordmark-white.svg" alt="" class="wm"><p class="t-xl">THE FUTURE<br>FISHING MEDIA</p></div></button><button class="post sand" data-i="1" aria-label="Voir la publication 2"><div class="tile"><div class="art" style="width:92%;height:92%"><svg viewBox="-117.0 -112.5 234.0 216.0" aria-hidden="true"><defs><clipPath id="cp2"><circle r="90"/></clipPath></defs><g clip-path="url(#cp2)"><circle r="90" fill="#E2703A"/><rect x="-90" y="5.3" width="180" height="2.1" fill="#F1ECE2"/><rect x="-90" y="18.4" width="180" height="3.5" fill="#F1ECE2"/><rect x="-90" y="30.3" width="180" height="4.9" fill="#F1ECE2"/><rect x="-90" y="40.9" width="180" height="6.2" fill="#F1ECE2"/><rect x="-90" y="50.2" width="180" height="7.6" fill="#F1ECE2"/><rect x="-90" y="58.2" width="180" height="9.0" fill="#F1ECE2"/><rect x="-90" y="65.0" width="180" height="10.4" fill="#F1ECE2"/></g><rect x="-117.0" y="88.94117647058823" width="234.0" height="2.6" fill="#0B1F33"/><g transform="translate(4.2 -7.4) rotate(-26) scale(0.265)"><path d="M-330 0 C-250 -70 -80 -105 60 -95 C150 -88 230 -55 270 -22 L330 -95 L310 0 L330 95 L270 22 C230 55 150 88 60 95 C-80 105 -250 70 -330 0 Z M-20 -95 L60 -175 L90 -92 Z M-10 95 L60 165 L80 92 Z" fill="#0B1F33" stroke="#F1ECE2" stroke-width="18" paint-order="stroke"/></g></svg></div></div></button><button class="post sun" data-i="2" aria-label="Voir la publication 3"><div class="tile"><p class="t-lg">SHARE STORIES,<br>NOT COORDINATES.</p></div></button><button class="post navy" data-i="3" aria-label="Voir la publication 4"><div class="tile"><div class="art"><svg viewBox="-100 -610 200 620" aria-hidden="true"><path fill-rule="evenodd" d="M-70 0 L-52 -330 L52 -330 L70 0 Z M-88 -330 H88 V-372 H-88 Z M-50 -372 H50 V-470 H-50 Z M-62 -470 Q0 -560 62 -470 Z M-6 -550 H6 V-600 H-6 Z M-30 -385 H30 V-457 H-30 Z" fill="#F1ECE2"/></svg></div><p class="t-sm">35°47'N · 5°55'W</p></div></button><button class="post white" data-i="4" aria-label="Voir la publication 5"><div class="tile"><p class="kick">SPECIES FILE 01</p><div class="art"><svg viewBox="-360 -200 720 400" aria-hidden="true"><g transform="rotate(-8)"><path d="M-330 0 C-250 -70 -80 -105 60 -95 C150 -88 230 -55 270 -22 L330 -95 L310 0 L330 95 L270 22 C230 55 150 88 60 95 C-80 105 -250 70 -330 0 Z M-20 -95 L60 -175 L90 -92 Z M-10 95 L60 165 L80 92 Z" fill="#0B1F33"/></g></svg></div><p class="t-md">BLUEFIN TUNA</p><p class="t-xs">Thunnus thynnus</p></div></button><button class="post sand" data-i="5" aria-label="Voir la publication 6"><div class="tile"><p class="kick">FOUNDED IN</p><p class="t-xl">BARCELONA</p><p class="t-sm">JUNE 2026</p></div></button><button class="post navy" data-i="6" aria-label="Voir la publication 7"><div class="tile"><p class="kick">SPARTEL SESSIONS</p><p class="t-lg">SEASON 01</p><div class="art"><svg viewBox="-100 -610 200 620" aria-hidden="true"><path fill-rule="evenodd" d="M-70 0 L-52 -330 L52 -330 L70 0 Z M-88 -330 H88 V-372 H-88 Z M-50 -372 H50 V-470 H-50 Z M-62 -470 Q0 -560 62 -470 Z M-6 -550 H6 V-600 H-6 Z M-30 -385 H30 V-457 H-30 Z" fill="#E2703A"/></svg></div><p class="t-xs">Filmed on every trip</p></div></button><button class="post white" data-i="7" aria-label="Voir la publication 8"><div class="tile"><p class="kick">LURE OF THE MONTH</p><div class="art lure"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12c3-5 9-6 14-3-2 5-8 7-14 3z"/><circle cx="15" cy="10" r="1"/><path d="M5 12l-2 3M19 9l2-1"/><path d="M8 15v3a2 2 0 0 0 3 1"/></svg></div><p class="t-md">SLOW JIG 80 G</p><p class="t-xs">Drop. Flutter. Wait.</p></div></button><button class="post sun" data-i="8" aria-label="Voir la publication 9"><div class="tile"><p class="t-xl">TWO SEAS.<br>ONE CREW.</p></div></button><button class="post sand" data-i="9" aria-label="Voir la publication 10"><div class="tile"><div class="art" style="width:78%;height:78%"><img src="assets/badge.svg" alt="" class="badge"></div></div></button><button class="post navy" data-i="10" aria-label="Voir la publication 11"><div class="tile"><p class="kick">FIELD NOTE</p><p class="t-lg">NEW MOON.<br>BIG TIDES.<br>GO.</p></div></button><button class="post white" data-i="11" aria-label="Voir la publication 12"><div class="tile"><div class="phone"><div class="scr"><img src="assets/symbol.svg" alt=""><p>SPARTEL</p><span></span><span></span><span class="s"></span></div></div><p class="t-xs">The crew app is live</p></div></button></div></div>
+
+<section class="block"><div class="wrap" style="text-align:center"><img src="assets/symbol.svg" alt="" width="84" height="84" style="margin:0 auto 14px;display:block"><h2 class="h" style="font-size:clamp(26px,4.6vw,42px)">Ready for the next trip?</h2><p class="lead" style="max-width:520px;margin:12px auto 24px">Join the crew, log your first catch, and keep your spots where they belong.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><a class="btn p" href="app/#/signup">Join the crew</a><a class="btn d" href="app/">Log in</a></div></div></section>
+</main><footer><div class="wrap"><img src="assets/wordmark.svg" alt="Spartel" style="height:26px"><span>© 2026 Spartel · Barcelona · Atlantic · Mediterranean</span><a href="app/">Log in</a></div></footer>
+
+<div class="modal" id="m" role="dialog" aria-modal="true" aria-label="Publication"><button class="x" id="mx" aria-label="Fermer">×</button><div id="mc"></div></div>
+<script>
+const D={"posts": [{"cap": "Spartel is a fishing media made by anglers, for anglers. Films, photos and field notes from where the Atlantic meets the Mediterranean.", "tag": "#thefuturefishingmedia"}, {"cap": "Sunrise, slack tide, a tuna breaking the surface. That is the whole brief.", "tag": "#offshore #bluefin"}, {"cap": "Rule number one of the crew. We will show you everything: the fish, the gear, the sunrise. Never the waypoint.", "tag": "#crewrules"}, {"cap": "Cap Spartel, near Tangier. The lighthouse that gave us our name, standing where two seas meet.", "tag": "#capspartel #tanger"}, {"cap": "Species file 01: the bluefin. Every year it crosses the strait, and every year we try to be there.", "tag": "#speciesfile #bluefintuna"}, {"cap": "Founded in Barcelona in June 2026, by a crew of friends who spend their weekends on the water between Spain and Morocco.", "tag": "#barcelona #since2026"}, {"cap": "Spartel Sessions, Season 01. One boat, one crew, every trip on camera. Raw, long, honest fishing films.", "tag": "#spartelsessions"}, {"cap": "Lure of the month: the 80 g slow jig. Dropped on the rocks at dawn, it does most of the work for you.", "tag": "#slowjig #lureofthemonth"}, {"cap": "Atlantic on one side, Mediterranean on the other. Same crew, same boat, two completely different fisheries.", "tag": "#atlantic #mediterranean"}, {"cap": "The crew badge. Earned on the water, worn on the cap.", "tag": "#spartelcrew"}, {"cap": "Field note: when the moon goes dark and the tides get big, the fish wake up. We log every catch with wind, swell and moon to prove it.", "tag": "#fieldnotes"}, {"cap": "Our own app: every spot, every catch, every lure, logged with the conditions of the moment. Private by default, shared with the crew when you decide.", "tag": "#spartelapp"}], "hl": [{"n": "Spots", "t": "Every spot we fish is logged in the Spartel app: depth, bottom, best lure, best moment. Private by default. Shared with the crew only."}, {"n": "Tuna", "t": "Bluefin season is the heartbeat of the strait. We follow it from the first boils in spring to the last runs of autumn."}, {"n": "Jigging", "t": "Slow jig, speed jig, madai: the crew's favourite way to fish the rocks of the strait."}, {"n": "Sessions", "t": "Spartel Sessions: long-form fishing films shot on every trip. Season 01 is being filmed now."}, {"n": "Crew", "t": "A crew of friends between Barcelona and Tangier. Different jobs, same boat, same obsession."}, {"n": "App", "t": "The Spartel app is live for the crew: spots, catches, lures, trips and Solix tracks in one place. See the App page."}]};
+const m=document.getElementById('m'),mc=document.getElementById('mc');
+let timer;
+function close(){m.classList.remove('open');mc.innerHTML='';clearTimeout(timer);}
+document.getElementById('mx').onclick=close;
+m.onclick=e=>{if(e.target===m)close();};
+addEventListener('keydown',e=>{if(e.key==='Escape')close();});
+document.querySelectorAll('.post[data-i]').forEach(b=>b.onclick=()=>{
+ const i=+b.dataset.i,p=D.posts[i];
+ mc.innerHTML=`<div class="mbox"><div class="media">${b.outerHTML}</div><div class="side"><div class="who"><img src="assets/symbol.svg" alt="">spartel</div><div class="cap"><p><b>spartel</b> ${p.cap}</p><p class="tag">${p.tag}</p></div><div class="act"><span style="font-size:13px;color:#4A5A6A">Founded in Barcelona · June 2026</span><a class="btn p" href="app/#/signup">Join</a></div></div></div>`;
+ m.classList.add('open');
+});
+document.querySelectorAll('.hl').forEach(b=>b.onclick=()=>{
+ const h=D.hl[+b.dataset.h];
+ const inn=b.querySelector('.in'),ic=inn.innerHTML,cl=[...inn.classList].find(c=>c!=='in');
+ mc.innerHTML=`<div class="story ${cl}"><div class="bar"><i></i></div><div class="art2">${ic}</div><p class="h" style="font-size:24px">${h.n}</p><p>${h.t}</p></div>`;
+ m.classList.add('open');
+ requestAnimationFrame(()=>mc.firstChild.classList.add('play'));
+ timer=setTimeout(close,6200);
+});
+
+</script>
+</body>
+</html>
