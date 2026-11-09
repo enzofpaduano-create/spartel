@@ -196,7 +196,7 @@ function viewAuth(mode = 'login') {
     </div>
     <p class="hint" style="text-align:center">Spartel · Atlantic · Mediterranean</p>
   </main>`;
-  $app.querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => viewAuth(b.dataset.mode)));
+  $app.querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => { history.replaceState(null, "", b.dataset.mode === "signup" ? "#/signup" : "#/"); viewAuth(b.dataset.mode); }));
   const f = $app.querySelector('#authf');
   f.onsubmit = async (e) => {
     e.preventDefault();
@@ -941,7 +941,8 @@ const routes = [
   [/^#\/crew/, viewCrew], [/^#\/reset/, viewReset],
 ];
 async function route() {
-  if (!S.user) return viewAuth();
+  if (!S.user) return viewAuth(location.hash.startsWith('#/signup') ? 'signup' : 'login');
+  if (location.hash.startsWith('#/signup')) history.replaceState(null, '', '#/');
   if (location.hash.startsWith('#/reset')) return viewReset();
   if (!S.crew) return viewOnboarding();
   const h = location.hash.split('?')[0] || '#/';
