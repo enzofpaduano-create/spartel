@@ -4,6 +4,7 @@ import { fmtCoord, parseCoords, parseGPX, buildGPX, buildKML, buildCSV, parseAny
 import { readPhotoMeta, compressImage, MAX_VIDEO_MB } from './media.js';
 import { queueAdd, queueAll, queueDelete } from './offline.js';
 import { market } from './market.js';
+import { openShareCard } from './share.js';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 const $app = document.getElementById('app');
@@ -56,6 +57,8 @@ const ICONS = {
   cam: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/>',
   share: '<path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 13v7h14v-7"/>',
+  heart: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21.2l7.8-7.7 1.1-1.1a5.5 5.5 0 0 0 0-7.8z"/>',
+  chat: '<path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/>',
   nav: '<path d="M12 2l7 19-7-4-7 4z"/>',
   back: '<path d="M15 5l-7 7 7 7"/>',
   search: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
@@ -344,18 +347,96 @@ async function viewHome() {
   if (bl) bl.innerHTML = ranking.length ? ranking.map(([id, c], i) => `<div class="list-item"><b style="width:16px;color:var(--sun-dark)">${i + 1}</b>${avatar(id)}<span class="grow ellipsis" style="font-weight:600">${esc(nameOf(id))}</span><span class="small muted">${esc(c.species)}</span><b>${kg(c.weight_kg)}</b></div>`).join('') : '<p class="muted" style="margin:8px 0 0">Pas encore de prise pesée ce mois-ci.</p>';
   const spotName = Object.fromEntries((spots || []).map((s) => [s.id, s.name]));
   const lureById = Object.fromEntries((lures || []).map((l) => [l.id, l]));
-  const url = await signed((feed || []).flatMap((c) => [c.photo_path, c.lure_photo_path || lureById[c.lure_id]?.photo_path]));
+  const [url, social] = await Promise.all([
+    signed((feed || []).flatMap((c) => [c.photo_path, c.lure_photo_path || lureById[c.lure_id]?.photo_path])),
+    loadSocial((feed || []).map((c) => c.id)).catch(() => ({ likes: {}, comments: {} })),
+  ]);
   const fe = $app.querySelector('#feed'); if (!fe) return;
   fe.innerHTML = (feed || []).length ? feed.map((c) => {
     const a = c.angler_id || c.created_by, lure = lureById[c.lure_id];
     const lp = c.lure_photo_path || lure?.photo_path;
-    return `<a class="card" href="#/catch/${c.id}" style="text-decoration:none;color:inherit;padding:14px">
+    return `<article class="card" style="padding:14px">
+      <a href="#/catch/${c.id}" style="text-decoration:none;color:inherit;display:block">
       <div class="row">${avatar(a)}<div class="grow"><div style="font-weight:700">${esc(nameOf(a))}</div><div class="small muted ellipsis">${esc([fmtDate(c.caught_at), spotName[c.spot_id], c.depth_m != null ? `${num(c.depth_m, 0)} m` : null].filter(Boolean).join(' · '))}</div></div></div>
       ${c.photo_path && url(c.photo_path) ? `<img class="photo" style="margin-top:12px" loading="lazy" src="${url(c.photo_path)}" alt="${esc(c.species)}">` : ''}
       <div class="row between" style="margin-top:12px"><span class="h" style="font-size:18px">${esc(c.species)}</span><b style="color:var(--sun-dark);font-size:18px">${kg(c.weight_kg)}</b></div>
       ${lure || c.lure_name ? `<div class="row" style="margin-top:10px;padding:8px;background:var(--sand);border-radius:12px">${lp && url(lp) ? `<img class="thumb" src="${url(lp)}" alt="">` : `<span class="thumb">${icon('lure')}</span>`}<div><div style="font-weight:600;font-size:14px">${esc(lure?.name || c.lure_name)}</div><div class="small muted">${esc([c.technique, c.released ? 'relâché' : null].filter(Boolean).join(' · '))}</div></div></div>` : ''}
-    </a>`;
+      </a>
+      <div class="actions">${likeBtn(c.id, social.likes[c.id])}<a class="likebtn" href="#/catch/${c.id}?c=1" aria-label="Commentaires">${icon('chat', 22)}<span>${social.comments[c.id] || ''}</span></a></div>
+    </article>`;
   }).join('') : `<div class="empty card">${icon('trophy', 34)}<p>Aucune prise pour l’instant.<br>Touche le bouton <b>+</b> pour enregistrer la première.</p></div>`;
+  wireLikes(fe, social.likes);
+}
+
+/* ---------------- Likes et commentaires ---------------- */
+async function loadSocial(ids) {
+  const likes = {}, comments = {};
+  if (!ids.length) return { likes, comments };
+  const [{ data: l }, { data: cm }] = await Promise.all([
+    sb.from('catch_likes').select('catch_id, user_id').in('catch_id', ids),
+    sb.from('catch_comments').select('catch_id').in('catch_id', ids),
+  ]);
+  (l || []).forEach((r) => (likes[r.catch_id] ||= new Set()).add(r.user_id));
+  (cm || []).forEach((r) => { comments[r.catch_id] = (comments[r.catch_id] || 0) + 1; });
+  return { likes, comments };
+}
+function likeBtn(id, set) {
+  const on = !!set?.has(S.user.id), n = set?.size || 0;
+  return `<button class="likebtn${on ? ' on' : ''}" data-like="${id}" aria-pressed="${on}" aria-label="J’aime">${icon('heart', 22)}<span>${n || ''}</span></button>`;
+}
+const paintLike = (btn, set) => {
+  const on = set.has(S.user.id);
+  btn.classList.toggle('on', on); btn.setAttribute('aria-pressed', on); btn.querySelector('span').textContent = set.size || '';
+};
+// Branche tous les boutons « j’aime » d’un conteneur. `likes` : { catchId: Set(userId) }.
+function wireLikes(root, likes, onChange) {
+  root.querySelectorAll('[data-like]').forEach((btn) => {
+    btn.onclick = async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const id = btn.dataset.like, set = (likes[id] ||= new Set()), on = !set.has(S.user.id);
+      const paint = () => { paintLike(btn, set); onChange?.(set); };
+      on ? set.add(S.user.id) : set.delete(S.user.id); paint(); // affichage immédiat
+      const { error } = on
+        ? await sb.from('catch_likes').insert({ catch_id: id })
+        : await sb.from('catch_likes').delete().eq('catch_id', id).eq('user_id', S.user.id);
+      if (error && !(on && error.code === '23505')) { on ? set.delete(S.user.id) : set.add(S.user.id); paint(); fail(error); }
+    };
+  });
+}
+const ago = (d) => {
+  const s = (Date.now() - new Date(d)) / 1000;
+  if (s < 60) return 'à l’instant'; if (s < 3600) return `${Math.floor(s / 60)} min`; if (s < 86400) return `${Math.floor(s / 3600)} h`;
+  return fmtDate(d, { day: 'numeric', month: 'short' });
+};
+function commentRow(cm, canModerate) {
+  const mine = cm.user_id === S.user.id;
+  return `<div class="cmt" data-cid="${cm.id}">${avatar(cm.user_id)}<div class="grow"><div><b>${esc(nameOf(cm.user_id))}</b> <span class="small muted">${esc(ago(cm.created_at))}</span></div><div style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(cm.body)}</div></div>${mine || canModerate ? `<button class="iconbtn cmt-del" data-del="${cm.id}" aria-label="Supprimer le commentaire" style="width:36px;height:36px">✕</button>` : ''}</div>`;
+}
+// Section commentaires d'une prise (fiche prise).
+async function commentsSection(root, catchId, canModerate, focus) {
+  const { data } = await sb.from('catch_comments').select('*').eq('catch_id', catchId).order('created_at');
+  const list = root.querySelector('#cmtList'), input = root.querySelector('#cmtIn'), send = root.querySelector('#cmtSend');
+  const draw = (rows) => {
+    list.innerHTML = rows.length ? rows.map((cm) => commentRow(cm, canModerate)).join('') : '<p class="muted" style="margin:0">Aucun commentaire pour l’instant.</p>';
+    list.querySelectorAll('[data-del]').forEach((b) => (b.onclick = async () => {
+      if (!(await confirmBox('Supprimer ce commentaire ?'))) return;
+      const { error } = await sb.from('catch_comments').delete().eq('id', b.dataset.del);
+      if (error) return fail(error);
+      rows = rows.filter((r) => String(r.id) !== b.dataset.del); draw(rows);
+    }));
+  };
+  let rows = data || []; draw(rows);
+  const post = async () => {
+    const body = input.value.trim(); if (!body) return;
+    send.disabled = true;
+    const { data: row, error } = await sb.from('catch_comments').insert({ catch_id: catchId, body }).select().single();
+    send.disabled = false;
+    if (error) return fail(error);
+    input.value = ''; rows = [...rows, row]; draw(rows);
+  };
+  send.onclick = post;
+  input.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); post(); } };
+  if (focus) { el_scroll(root.querySelector('#comments')); }
 }
 
 /* ---------------- Carte ---------------- */
@@ -836,6 +917,7 @@ async function viewCatch(id) {
     ${c.video_path && url(c.video_path) ? `<video class="photo" src="${url(c.video_path)}" controls playsinline preload="metadata"></video>` : ''}
     <div class="row between"><h2 class="h" style="font-size:24px">${esc(c.species)}</h2><b style="color:var(--sun-dark);font-size:22px">${kg(c.weight_kg)}</b></div>
     <a class="row" href="#/u/${a}" style="text-decoration:none;color:inherit">${avatar(a)}<div><b>${esc(nameOf(a))}</b><div class="small muted">${fmtDate(c.caught_at, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · ${fmtTime(c.caught_at)}${c.created_by !== a ? ` · saisi par ${esc(nameOf(c.created_by))}` : ''}</div></div></a>
+    <div class="row between"><div class="actions" style="margin:0" id="catchLike">${likeBtn(id, null)}<span class="small muted" id="likedBy"></span></div><button class="btn sun sm" id="shi">${icon('share', 16)} Partager en image</button></div>
     <div class="card list" style="padding:4px 16px">${[
       ['Taille', c.length_cm ? `${num(c.length_cm)} cm` : null], ['Profondeur', c.depth_m ? `${num(c.depth_m, 0)} m` : null], ['Technique', c.technique],
       ['Spot', spot ? `<a href="#/spot/${spot.id}">${esc(spot.name)}</a>` : null, true], ['Position', c.lat != null ? fmtCoord(c.lat, c.lon, S.coordMode) : null],
@@ -845,10 +927,29 @@ async function viewCatch(id) {
     ${lure || c.lure_name ? `<div class="card row">${lp && url(lp) ? `<img class="thumb" src="${url(lp)}" alt="Leurre">` : `<span class="thumb">${icon('lure')}</span>`}<div class="grow"><p class="small muted" style="margin:0">Leurre</p><b>${esc(lure?.name || c.lure_name)}</b>${lure ? `<div class="small muted">${esc([lure.lure_type, lure.weight_g ? lure.weight_g + ' g' : null, lure.color].filter(Boolean).join(' · '))}</div>` : ''}</div>${lure ? `<a class="iconbtn" href="#/lure/${lure.id}" aria-label="Voir le leurre">${icon('chev')}</a>` : ''}</div>` : ''}
     <section class="card"><p class="kicker" style="margin:0 0 10px">Conditions au moment de la prise</p><div class="stats">${cond.map(([ic, v, l]) => `<div class="stat">${icon(ic, 20)}<b>${v ?? '—'}</b><span>${esc(l)}</span></div>`).join('')}</div>${k.pressure_msl ? `<p class="small muted" style="margin:10px 0 0;text-align:center">Pression ${Math.round(k.pressure_msl)} hPa${k.wind_gusts_10m ? ` · rafales ${Math.round(k.wind_gusts_10m)} nds` : ''}${k.wave_period ? ` · période ${num(k.wave_period)} s` : ''}</p>` : ''}</section>
     ${c.notes ? `<p style="margin:0;white-space:pre-wrap">${esc(c.notes)}</p>` : ''}
+    <section class="card" id="comments"><p class="kicker" style="margin:0 0 10px">Commentaires</p><div id="cmtList" class="cmts"><p class="muted" style="margin:0">…</p></div>
+      <div class="cmt-form"><input id="cmtIn" maxlength="500" placeholder="Écrire un commentaire…" autocomplete="off" aria-label="Commentaire"><button class="btn sun sm" id="cmtSend">Envoyer</button></div></section>
     ${c.created_by === S.user.id || c.angler_id === S.user.id ? `<label class="switch card" style="padding:10px 16px">Afficher sur ${a === S.user.id ? 'mon' : 'son'} profil public<input type="checkbox" id="pub" ${c.is_public ? 'checked' : ''}></label>` : ''}
     ${c.created_by === S.user.id ? '<button class="btn danger" id="del">Supprimer cette prise</button>' : ''}
   </main>`, { tab: 'home' });
   $app.querySelector('#sh').onclick = () => shareOrCopy(`${nameOf(a)} — ${c.species}${c.weight_kg ? ' ' + kg(c.weight_kg) : ''}${spot && c.visibility === 'crew' ? ' · ' + spot.name : ''} · ${fmtDate(c.caught_at)}`);
+  // Partage en image (Instagram…) : jamais de spot ni de position sur l'image.
+  $app.querySelector('#shi').onclick = () => openShareCard({
+    species: c.species, weight: c.weight_kg ? kg(c.weight_kg) : '', length: c.length_cm ? `${num(c.length_cm)} cm` : '',
+    angler: nameOf(a), dateLabel: fmtDate(c.caught_at, { day: 'numeric', month: 'long', year: 'numeric' }),
+    lure: lure?.name || c.lure_name || '', released: !!c.released, photoUrl: url(c.photo_path),
+  }, { modal, toast }).catch(fail);
+  // J'aime + commentaires
+  const likes = { [id]: new Set() };
+  const likedBy = (set) => { const names = [...(set || [])].map(nameOf); $app.querySelector('#likedBy').textContent = names.length ? (names.length > 2 ? `${names.slice(0, 2).join(', ')} et ${names.length - 2} autre${names.length > 3 ? 's' : ''}` : names.join(' et ')) : ''; };
+  const likeBox = $app.querySelector('#catchLike');
+  wireLikes(likeBox, likes, likedBy); // actif tout de suite, les anciens « j'aime » arrivent ensuite
+  sb.from('catch_likes').select('user_id').eq('catch_id', id).then(({ data }) => {
+    (data || []).forEach((r) => likes[id].add(r.user_id));
+    if (!likeBox.isConnected) return;
+    paintLike(likeBox.querySelector('[data-like]'), likes[id]); likedBy(likes[id]);
+  });
+  commentsSection($app, id, c.created_by === S.user.id || c.angler_id === S.user.id, !!qs().c).catch(fail);
   const pub = $app.querySelector('#pub');
   if (pub) pub.onchange = async () => { const { error } = await sb.from('catches').update({ is_public: pub.checked }).eq('id', id); error ? (fail(error), (pub.checked = !pub.checked)) : toast(pub.checked ? 'Visible sur le profil public (sans le spot)' : 'Retirée du profil public'); };
   const del = $app.querySelector('#del');

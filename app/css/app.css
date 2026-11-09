@@ -180,3 +180,17 @@ a.banner{color:#fff}
 .phcover{position:absolute;left:4px;bottom:4px;background:var(--sun);color:#fff;font:700 10px var(--b);padding:3px 7px;border-radius:99px}
 .phadd{min-height:0;aspect-ratio:1}
 .okbox{display:flex;align-items:center;gap:8px;margin:0 0 4px;padding:10px 12px;border-radius:12px;background:#E6F2EA;color:#1E7A46;font:600 13px var(--b)}
+
+/* Likes & commentaires */
+.actions { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+.likebtn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border: none; background: none; border-radius: 10px; font: 700 14px var(--b); color: var(--navy); cursor: pointer; text-decoration: none; }
+.likebtn svg { transition: transform .12s; }
+.likebtn.on { color: var(--sun-dark); }
+.likebtn.on svg { fill: var(--sun); stroke: var(--sun); }
+.likebtn:active svg { transform: scale(1.25); }
+.cmts { display: flex; flex-direction: column; gap: 12px; }
+.cmt { display: flex; gap: 10px; align-items: flex-start; }
+.cmt .avatar { margin-top: 2px; }
+.cmt-form { display: flex; gap: 8px; align-items: center; margin-top: 14px; }
+.cmt-form input { flex: 1; min-width: 0; min-height: 44px; border-radius: 22px; border: 1px solid var(--line); background: #fff; padding: 0 16px; font: 500 15px var(--b); color: var(--navy); }
+.cmt-form input:focus { outline: 2px solid var(--sun); }
