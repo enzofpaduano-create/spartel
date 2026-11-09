@@ -184,8 +184,18 @@ async function loadProfile() {
 }
 
 /* ---------------- Auth ---------------- */
-function viewAuth(mode = 'login') {
+const SITE_URL = new URL('../', location.href).href;
+const ACCESS_URL = `${SITE_URL}#access`;
+async function viewAuth(mode = 'login') {
   teardown();
+  const inviteTok = localStorage.getItem('pendingInvite') || '';
+  const crewCode = localStorage.getItem('pendingJoin') || '';
+  let inv = null;
+  if (mode === 'signup' && inviteTok) { const { data } = await sb.rpc('invite_info', { p_token: inviteTok }); inv = data; }
+  const gateNote = mode !== 'signup' ? ''
+    : inv ? `<p class="okbox">${icon('check', 16, 3)} Ton accès est accepté. Crée ton compte.</p>`
+    : crewCode ? `<p class="okbox">${icon('users', 16)} Invitation à rejoindre un équipage : crée ton compte.</p>`
+    : `<p class="hint" style="margin:0 0 4px">Spartel est sur invitation. Si ta demande a été acceptée, utilise le même e-mail. Sinon, <a href="${ACCESS_URL}">demande ton accès</a>.</p>`;
   $app.innerHTML = `<main class="auth">
     <img class="logo" src="icons/wordmark.svg" alt="Spartel">
     <div class="card">
@@ -193,15 +203,15 @@ function viewAuth(mode = 'login') {
         <button class="chip ${mode === 'login' ? 'on' : ''}" data-mode="login" role="tab" aria-selected="${mode === 'login'}">Connexion</button>
         <button class="chip ${mode === 'signup' ? 'on' : ''}" data-mode="signup" role="tab" aria-selected="${mode === 'signup'}">Créer un compte</button>
       </div>
-      <form id="authf">
-        ${mode === 'signup' ? '<label class="f">Prénom (affiché dans l’équipe)<input name="name" required autocomplete="given-name" maxlength="40"></label>' : ''}
-        <label class="f">E-mail<input name="email" type="email" required autocomplete="email" inputmode="email"></label>
+      <form id="authf">${gateNote}
+        ${mode === 'signup' ? `<label class="f">Prénom (affiché dans l’équipe)<input name="name" required autocomplete="given-name" maxlength="40" value="${esc(inv?.name?.split(' ')[0] || '')}"></label>` : ''}
+        <label class="f">E-mail<input name="email" type="email" required autocomplete="email" inputmode="email" value="${esc(inv?.email || '')}"></label>
         <label class="f">Mot de passe<input name="password" type="password" required minlength="6" autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}"></label>
         <button class="btn sun" type="submit">${mode === 'signup' ? 'Créer mon compte' : 'Se connecter'}</button>
         ${mode === 'login' ? '<button type="button" class="btn ghost sm" id="forgot">Mot de passe oublié</button>' : ''}
       </form>
     </div>
-    <p class="hint" style="text-align:center">Spartel · Atlantic · Mediterranean</p>
+    <p class="hint" style="text-align:center">${mode === 'login' ? `Pas encore de compte ? <a href="${ACCESS_URL}">Demander l’accès</a>` : 'Spartel · Atlantic · Mediterranean'}</p>
   </main>`;
   $app.querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => { history.replaceState(null, "", b.dataset.mode === "signup" ? "#/signup" : "#/"); viewAuth(b.dataset.mode); }));
   const f = $app.querySelector('#authf');
@@ -211,8 +221,11 @@ function viewAuth(mode = 'login') {
     btn.disabled = true;
     try {
       if (mode === 'signup') {
-        const { data, error } = await sb.auth.signUp({ email: fd.get('email'), password: fd.get('password'), options: { data: { display_name: fd.get('name') }, emailRedirectTo: location.origin + location.pathname } });
-        if (error) throw error;
+        const { data: ok } = await sb.rpc('signup_allowed', { p_email: fd.get('email'), p_invite: inviteTok || null, p_crew_code: crewCode || null });
+        if (!ok) { gateModal(); return; }
+        const { data, error } = await sb.auth.signUp({ email: fd.get('email'), password: fd.get('password'), options: { data: { display_name: fd.get('name'), invite: inviteTok || undefined, crew_code: crewCode || undefined }, emailRedirectTo: location.origin + location.pathname } });
+        if (error) { if (/database error|INVITE_ONLY/i.test(error.message)) { gateModal(); return; } throw error; }
+        localStorage.removeItem('pendingInvite');
         if (!data.session) { toast('Compte créé. Confirme ton e-mail puis connecte-toi.', 6000); viewAuth('login'); }
       } else {
         const { error } = await sb.auth.signInWithPassword({ email: fd.get('email'), password: fd.get('password') });
@@ -227,6 +240,11 @@ function viewAuth(mode = 'login') {
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname + '#/reset' });
     error ? fail(error) : toast('E-mail de réinitialisation envoyé', 5000);
   };
+}
+
+function gateModal() {
+  const m = modal(`<p class="h" style="font-size:18px;margin:0 0 8px">Spartel est sur invitation</p><p style="margin:0 0 16px">Cet e-mail n’a pas encore d’accès. Fais ta demande sur le site : tu recevras un lien par e-mail dès qu’elle est acceptée.</p><a class="btn sun" href="${ACCESS_URL}" style="width:100%">Demander l’accès</a>`);
+  return m;
 }
 
 function viewReset() {
@@ -289,6 +307,9 @@ async function viewHome() {
   const hi = $app.querySelector('#hideInstall'); if (hi) hi.onclick = () => { localStorage.setItem('hideInstall', '1'); hi.closest('.card').remove(); };
   const sy = $app.querySelector('#sync'); if (sy) sy.onclick = () => syncQueue(true);
   M.homeOutings($app.querySelector('#homeOut')).catch(() => {});
+  if (S.profile?.is_admin) sb.from('access_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending').then(({ count }) => {
+    if (count) $app.querySelector('#homeOut')?.insertAdjacentHTML('beforebegin', `<a class="banner" href="#/access" style="text-decoration:none"><span>${count} demande${count > 1 ? 's' : ''} d’accès à Spartel</span>${icon('chev', 18)}</a>`);
+  });
 
   // Prochaine sortie
   sb.from('trips').select('*').eq('crew_id', S.crew.id).gte('trip_date', todayISO()).order('trip_date').limit(1).then(({ data }) => {
@@ -1165,6 +1186,7 @@ async function viewCrew() {
     <a class="btn ghost" href="#/stats">${icon('chart', 18)}Stats de l’équipe</a>
     <section class="card"><p class="kicker" style="margin:0 0 8px">Mon profil</p><form id="pf"><label class="f">Prénom<input name="name" required maxlength="40" value="${esc(S.profile?.display_name || '')}"></label><label class="f">Ma pêche (ex. Slow jig &amp; traîne)<input name="bio" maxlength="60" value="${esc(S.profile?.bio || '')}"></label><label class="f">Port d’attache<input name="port" maxlength="60" value="${esc(S.profile?.home_port || '')}" placeholder="Tanger"></label><button class="btn">Enregistrer</button></form><a class="btn ghost sm" style="margin-top:10px;width:100%" href="#/u/${S.user.id}">Voir mon profil public</a></section>
     <a class="btn ghost" href="#/captain">${icon('boat', 18)}Espace capitaine</a>
+    ${S.profile?.is_admin ? `<a class="btn ghost" href="#/access">${icon('users', 18)}Demandes d’accès à Spartel</a>` : ''}
     <button class="btn dashed" id="newcrew">Rejoindre ou créer un autre équipage</button>
   </main>`, { tab: 'crew' });
   $app.querySelector('#inv').onclick = () => shareOrCopy(`Rejoins ${S.crew.name} sur Spartel\n${link}\nCode : ${S.crew.invite_code}`, 'Spartel');
@@ -1179,6 +1201,47 @@ async function viewCrew() {
   };
 }
 
+/* ---------------- Demandes d'accès (admin) ---------------- */
+async function viewAccess() {
+  if (!S.profile?.is_admin) return notFound();
+  const tab = qs().t || 'pending';
+  const { data } = await sb.from('access_requests').select('*').order('created_at', { ascending: false }).limit(300);
+  const all = data || [];
+  const count = (st) => all.filter((r) => r.status === st).length;
+  const list = all.filter((r) => (tab === 'approved' ? ['approved', 'joined'].includes(r.status) : r.status === tab));
+  const chip = (k, l) => `<a class="chip ${tab === k ? 'on' : ''}" href="#/access?t=${k}">${l}</a>`;
+  page(`<main class="screen">${topbar({ title: 'Demandes d’accès', back: true })}
+    <nav class="chips">${chip('pending', `En attente (${count('pending')})`)}${chip('approved', `Acceptées (${count('approved') + count('joined')})`)}${chip('rejected', `Refusées (${count('rejected')})`)}</nav>
+    ${list.length ? list.map((r) => `<section class="card" style="display:flex;flex-direction:column;gap:6px">
+      <div class="row between"><b>${esc(r.name)}</b><span class="small muted">${esc(fmtDate(r.created_at, { day: 'numeric', month: 'short' }))}</span></div>
+      <a class="small" href="mailto:${esc(r.email)}">${esc(r.email)}</a>
+      ${r.message ? `<p class="small" style="margin:0;white-space:pre-wrap;background:var(--sand);border-radius:10px;padding:8px 10px">${esc(r.message)}</p>` : ''}
+      ${r.status === 'joined' ? `<p class="okline" style="margin:4px 0 0">${icon('check', 16, 3)} Compte créé</p>` : ''}
+      <div class="btn-row" style="margin-top:6px">${r.status === 'pending' ? `<button class="btn sun sm" data-ok="${r.id}">Accepter et envoyer le lien</button><button class="btn ghost sm" data-no="${r.id}">Refuser</button>`
+        : r.status === 'approved' ? `<button class="btn sun sm" data-send="${r.id}">${icon('share', 14)}Renvoyer le lien</button>`
+        : r.status === 'rejected' ? `<button class="btn ghost sm" data-ok="${r.id}">Accepter finalement</button>` : ''}</div>
+    </section>`).join('') : `<div class="empty card">${icon('users', 30)}<p>${tab === 'pending' ? 'Aucune demande en attente.' : 'Rien ici.'}</p></div>`}
+    <p class="small muted" style="margin:0">Les gens demandent l’accès depuis le site. Quand tu acceptes, ton app e-mail s’ouvre avec le lien d’inscription prêt à envoyer.</p>
+  </main>`, { tab: 'crew' });
+  const byId = Object.fromEntries(all.map((r) => [r.id, r]));
+  const set = async (id, status) => { const { error } = await sb.from('access_requests').update({ status, approved_at: status === 'approved' ? new Date().toISOString() : null }).eq('id', id); if (error) throw error; };
+  $app.querySelectorAll('[data-ok]').forEach((b) => (b.onclick = async () => { try { await set(b.dataset.ok, 'approved'); sendInvite(byId[b.dataset.ok]); } catch (e) { fail(e); } }));
+  $app.querySelectorAll('[data-no]').forEach((b) => (b.onclick = async () => { if (await confirmBox(`Refuser la demande de ${byId[b.dataset.no].name} ?`, 'Refuser')) { try { await set(b.dataset.no, 'rejected'); viewAccess(); } catch (e) { fail(e); } } }));
+  $app.querySelectorAll('[data-send]').forEach((b) => (b.onclick = () => sendInvite(byId[b.dataset.send])));
+}
+function sendInvite(r) {
+  const link = `${location.origin}${location.pathname}?invite=${r.token}#/signup`;
+  const first = (r.name || '').split(' ')[0];
+  const subject = 'Ton accès à Spartel';
+  const body = `Salut ${first},\n\nTa demande d’accès à Spartel est acceptée. Crée ton compte avec ce lien :\n${link}\n\nSur iPhone : ouvre le lien dans Safari, puis Partager → « Sur l’écran d’accueil » pour avoir l’appli comme une vraie app.\n\nÀ bientôt sur l’eau,\n${S.profile?.display_name || 'Spartel'}`;
+  const m = modal(`<p class="h" style="font-size:18px;margin:0 0 6px">Envoyer l’accès à ${esc(first)}</p><p class="small muted" style="margin:0 0 14px">${esc(r.email)}</p>
+    <div class="btn-row" style="flex-direction:column"><a class="btn sun" href="mailto:${encodeURIComponent(r.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}">${icon('share', 16)}Envoyer par e-mail</a>
+    <button class="btn ghost" id="cp">${icon('copy', 16)}Copier le lien (WhatsApp…)</button></div>
+    <p class="small muted" style="margin:12px 0 0;word-break:break-all">${esc(link)}</p>`);
+  m.querySelector('#cp').onclick = async () => { try { await navigator.clipboard.writeText(link); toast('Lien copié'); } catch (e) { toast(link, 8000); } };
+  m.querySelector('a.btn').addEventListener('click', () => setTimeout(() => { m.remove(); if (location.hash.startsWith('#/access')) viewAccess(); }, 600));
+}
+
 function notFound() {
   page(`<main class="screen">${topbar({ back: true })}<div class="empty card"><p>Introuvable, ou tu n’y as pas accès.</p><a class="btn" href="#/">Accueil</a></div></main>`, { tab: null });
 }
@@ -1191,15 +1254,15 @@ const routes = [
   [/^#\/lures/, viewLures], [/^#\/lure-new/, () => viewLureForm()], [/^#\/lure\/(.+)/, viewLureForm],
   [/^#\/trips/, viewTrips], [/^#\/trip-new/, () => viewTripForm()], [/^#\/trip-edit\/(.+)/, viewTripForm], [/^#\/trip\/(.+)/, viewTrip],
   [/^#\/crew/, viewCrew], [/^#\/reset/, viewReset], [/^#\/forecast/, viewForecast], [/^#\/stats/, viewStats],
-  ...M.routes,
+  ...M.routes, [/^#\/access/, viewAccess],
 ];
 async function route() {
-  if (!S.user) return viewAuth(location.hash.startsWith('#/signup') ? 'signup' : 'login');
+  if (!S.user) return viewAuth(location.hash.startsWith('#/signup') || localStorage.getItem('pendingInvite') ? 'signup' : 'login');
   if (location.hash.startsWith('#/signup')) history.replaceState(null, '', '#/');
   if (location.hash.startsWith('#/reset')) return viewReset();
   const h = location.hash.split('?')[0] || '#/';
   if (!S.crew) {
-    const mr = M.routes.find(([re]) => re.test(h));
+    const mr = [...M.routes, [/^#\/access/, viewAccess]].find(([re]) => re.test(h));
     if (!mr) return viewOnboarding();
     try { await mr[1](h.match(mr[0])[1]); } catch (e) { fail(e); }
     return;
@@ -1212,11 +1275,15 @@ async function route() {
 }
 
 async function boot() {
-  const join = new URLSearchParams(location.search).get('join');
-  if (join) { localStorage.setItem('pendingJoin', join.toUpperCase()); history.replaceState(null, '', location.pathname + location.hash); }
+  const sp = new URLSearchParams(location.search);
+  const join = sp.get('join'), invite = sp.get('invite');
+  if (join) localStorage.setItem('pendingJoin', join.toUpperCase());
+  if (invite && /^[0-9a-f-]{36}$/i.test(invite)) localStorage.setItem('pendingInvite', invite.toLowerCase());
+  if (join || invite) history.replaceState(null, '', location.pathname + (location.hash || '') || location.pathname);
   const { data: { session } } = await sb.auth.getSession();
   S.user = session?.user || null;
   if (S.user) {
+    localStorage.removeItem('pendingInvite');
     await loadProfile();
     const pj = localStorage.getItem('pendingJoin');
     if (pj) {

@@ -179,3 +179,4 @@ a.banner{color:#fff}
 .phx{position:absolute;top:4px;right:4px;width:28px;height:28px;border-radius:14px;border:none;background:rgba(11,31,51,.75);color:#fff;font-size:13px;cursor:pointer}
 .phcover{position:absolute;left:4px;bottom:4px;background:var(--sun);color:#fff;font:700 10px var(--b);padding:3px 7px;border-radius:99px}
 .phadd{min-height:0;aspect-ratio:1}
+.okbox{display:flex;align-items:center;gap:8px;margin:0 0 4px;padding:10px 12px;border-radius:12px;background:#E6F2EA;color:#1E7A46;font:600 13px var(--b)}

@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script>if(location.search.includes('join='))location.replace('app/'+location.search);</script>
+<script>if(/[?&](join|invite)=/.test(location.search))location.replace('app/'+location.search+location.hash);</script>
 <style>
 :root{--navy:#0B1F33;--sand:#F1ECE2;--sun:#E2703A;--sun-d:#B9531F;--muted:#4A5A6A;--line:#DED7CA;--h:"Archivo",system-ui,sans-serif;--b:"Inter",system-ui,sans-serif}
 *{box-sizing:border-box}html{scroll-behavior:smooth}
@@ -228,6 +228,24 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;
 .fineprint{font-size:12px;color:var(--muted);margin:18px 0 0}
 @media (max-width:900px){.fgrid{grid-template-columns:1fr 1fr}.pillars,.two-c{grid-template-columns:1fr}}
 @media (max-width:560px){.fgrid{grid-template-columns:1fr}.screens .dev{width:200px}}
+</style><style>
+.access{background:var(--navy);color:var(--sand)}
+.access .lead{color:#C9D3DC}.access .kicker{color:var(--sun)}
+.acc-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:start}
+.acc-steps{list-style:none;padding:0;margin:22px 0;display:flex;flex-direction:column;gap:10px}
+.acc-steps li{display:flex;align-items:center;gap:12px;font-weight:600}
+.acc-steps b{width:28px;height:28px;border-radius:50%;background:var(--sun);color:#fff;display:grid;place-items:center;font-size:13px;flex:none}
+.small-note{font-size:13px;color:#C9D3DC}.small-note a{color:#fff;font-weight:700}
+.acc-form{background:#fff;color:var(--navy);border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:14px}
+.acc-form label{display:flex;flex-direction:column;gap:6px;font:600 13px var(--b);color:var(--muted)}
+.acc-form label span{font-weight:500}
+.acc-form input,.acc-form textarea{font:500 16px var(--b);color:var(--navy);border:1px solid var(--line);border-radius:10px;padding:12px;width:100%;background:#fff}
+.acc-form input:focus,.acc-form textarea:focus{outline:2px solid var(--sun);outline-offset:1px}
+.acc-form .btn{min-height:50px;font-size:15px}
+.acc-form .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.acc-msg{margin:0;font:600 14px var(--b);min-height:20px}
+.acc-msg.ok{color:#1E7A46}.acc-msg.err{color:#B3261E}
+@media(max-width:760px){.acc-grid{grid-template-columns:1fr;gap:24px}.acc-form{padding:18px}}
 </style></head>
 <body>
 <header class="top"><div class="wrap"><a href="" aria-label="Spartel"><img src="assets/wordmark.svg" alt="Spartel"></a><nav style="display:flex;gap:8px;align-items:center"><a class="btn g lk cur" href="" aria-current="page">App</a><a class="btn g lk" href="posts/">Posts</a><a class="btn g lk" href="sessions/">Sessions</a><a class="btn g lk" href="about/">About</a><a class="btn d" href="app/">Log in</a></nav></div></header>
@@ -236,7 +254,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;
   <p class="kicker" style="color:var(--sun)">Spartel · the crew app</p>
   <h1>The future of<br><em>fishing connectivity.</em></h1>
   <p class="sub">Your boat, your sounder and your crew, finally connected. Spartel turns every trip into data you keep: spots, catches, lures and conditions, logged in seconds and shared only with the people you fish with.</p>
-  <div class="cta"><a class="btn p" href="app/#/signup">Join the crew, it’s free</a><a class="btn g" href="app/">Log in</a></div>
+  <div class="cta"><a class="btn p" href="#access">Request access</a><a class="btn g" href="app/">Log in</a></div>
   <p class="note">Works with Humminbird · Garmin · Lowrance · Raymarine · any GPS that reads GPX</p>
  </div>
  <div class="phones" aria-hidden="true"><div class="dev d1"><img src="assets/screens/map.webp" alt="" width="390" height="844"></div><div class="dev d2"><img src="assets/screens/catch.webp" alt="" width="390" height="844"></div></div>
@@ -297,8 +315,8 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;
 <section class="block"><div class="wrap">
  <p class="kicker">Get started in one minute</p>
  <div class="steps">
-  <div><b>Open the invite link</b><p>Your crew sends you a link. Open it in Safari or Chrome.</p></div>
-  <div><b>Create your account</b><p>First name, email, password. You join the crew automatically.</p></div>
+  <div><b>Get your link</b><p><a href="#access">Request access</a> below, or ask your crew for their invite link. Open it in Safari or Chrome.</p></div>
+  <div><b>Create your account</b><p>First name, email, password. With a crew link, you join the crew automatically.</p></div>
   <div><b>Add it to your home screen</b><p>Share, then Add to Home Screen. Spartel opens like any app.</p></div>
  </div>
  <div class="next"><p class="kicker" style="margin:0 0 10px">Coming next</p><p>Card payment on Spartel · Notifications for the crew · Species recognition from photos · Sea temperature charts · Badges and seasons</p></div>
@@ -308,7 +326,38 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;
  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap"><div><p class="kicker">Also from Spartel</p><h2 class="h" style="font-size:clamp(26px,4.4vw,40px)">The future fishing media.</h2></div><a class="btn g" href="posts/">See the posts</a></div>
  <p class="lead" style="max-width:640px">Films, photos and field notes from the crew, fishing where the Atlantic meets the Mediterranean. Founded in Barcelona, June 2026.</p>
 </div></section>
-<section class="block"><div class="wrap" style="text-align:center"><img src="assets/symbol.svg" alt="" width="84" height="84" style="margin:0 auto 14px;display:block"><h2 class="h" style="font-size:clamp(26px,4.6vw,42px)">Ready for the next trip?</h2><p class="lead" style="max-width:520px;margin:12px auto 24px">Join the crew, log your first catch, and keep your spots where they belong.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><a class="btn p" href="app/#/signup">Join the crew</a><a class="btn d" href="app/">Log in</a></div></div></section>
+<section class="block access" id="access"><div class="wrap">
+ <div class="acc-grid">
+  <div><p class="kicker">Invite only</p><h2 class="h" style="font-size:clamp(28px,5vw,44px)">Request access.</h2>
+   <p class="lead">Spartel opens crew by crew. Leave your name and email: when your request is accepted, you get a link by email to create your account and use the app online, on any phone or computer.</p>
+   <ul class="acc-steps"><li><b>1</b>Send your request</li><li><b>2</b>Get your link by email</li><li><b>3</b>Create your account and fish</li></ul>
+   <p class="small-note">Already have an account? <a href="app/">Log in</a></p></div>
+  <form id="accf" class="acc-form" novalidate>
+   <label>Name<input name="name" required maxlength="80" autocomplete="name" placeholder="Your name"></label>
+   <label>Email<input name="email" type="email" required maxlength="200" autocomplete="email" inputmode="email" placeholder="you@email.com"></label>
+   <label>How do you fish? <span>(optional)</span><textarea name="message" maxlength="600" rows="3" placeholder="Your boat, your port, jigging, trolling…"></textarea></label>
+   <label class="hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+   <button class="btn p" type="submit">Request access</button>
+   <p id="accmsg" class="acc-msg" role="status" aria-live="polite"></p>
+  </form>
+ </div>
+</div></section>
 </main><footer><div class="wrap"><img src="assets/wordmark.svg" alt="Spartel" style="height:26px"><span>© 2026 Spartel · Barcelona · Atlantic · Mediterranean</span><a href="app/">Log in</a></div></footer>
 
-</body></html>
+<script>
+(function(){var f=document.getElementById('accf');if(!f)return;var m=document.getElementById('accmsg');
+f.addEventListener('submit',function(e){e.preventDefault();m.className='acc-msg';
+ if(f.website.value)return;var n=f.name.value.trim(),em=f.email.value.trim();
+ if(!n||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){m.className='acc-msg err';m.textContent='Please enter your name and a valid email.';return;}
+ var b=f.querySelector('button');b.disabled=true;b.textContent='Sending…';
+ fetch('https://rlptifjgbzmmlyiqyetk.supabase.co/rest/v1/rpc/request_access',{method:'POST',headers:{'Content-Type':'application/json',apikey:'sb_publishable_itW2Gc5Rl8pr9QHJHxXDfg_7DH3_Wbb',Authorization:'Bearer sb_publishable_itW2Gc5Rl8pr9QHJHxXDfg_7DH3_Wbb'},body:JSON.stringify({p_name:n,p_email:em,p_message:f.message.value.trim()||null})})
+ .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.message||'Error');return j;});})
+ .then(function(st){f.reset();
+  if(st==='exists'){m.innerHTML='You already have an account. <a href="app/">Log in</a>';m.className='acc-msg ok';}
+  else if(st==='approved'||st==='joined'){m.textContent='Your access is already accepted: check your email for the link.';m.className='acc-msg ok';}
+  else{m.textContent='Request sent. You will get your link by email as soon as it is accepted.';m.className='acc-msg ok';}})
+ .catch(function(err){m.className='acc-msg err';m.textContent='Something went wrong, please try again. ('+err.message+')';})
+ .finally(function(){b.disabled=false;b.textContent='Request access';});});
+if(location.hash==='#access'){var s=document.getElementById('access');if(s)setTimeout(function(){s.scrollIntoView();f.name.focus({preventScroll:true});},50);}
+})();
+</script></body></html>
