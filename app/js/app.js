@@ -302,7 +302,7 @@ async function viewHome() {
     <nav class="shortcuts" aria-label="Raccourcis">${[['#/forecast', 'sun', 'Prévisions'], ['#/lures', 'lure', 'Leurres'], ['#/trips', 'clock', 'Carnet de sorties'], ['#/stats', 'chart', 'Stats'], ['#/gpx', 'sd', 'Import / Export'], [`#/u/${S.user.id}`, 'users', 'Mon profil public']].map(([h, i, l]) => `<a href="${h}">${icon(i, 22)}<span>${l}</span></a>`).join('')}</nav>
     <section id="homeOut" style="display:flex;flex-direction:column;gap:10px"></section>
     <section class="card" id="next"><p class="kicker">Prochaine sortie</p><p class="muted">Chargement…</p></section>
-    <section class="card"><div class="row between"><p class="kicker">Conditions · ${esc(HOME_POS.name)}</p><span class="small muted">maintenant</span></div><div class="stats" id="cond" style="margin-top:10px"><p class="muted">…</p></div></section>
+    <section class="card"><div class="row between"><p class="kicker" id="condName">Conditions · …</p><a class="small muted" id="condLink" href="#/forecast" style="text-decoration:none">maintenant · prévisions</a></div><div class="stats" id="cond" style="margin-top:10px"><p class="muted">…</p></div></section>
     <section id="board" class="card"><div class="row">${icon('trophy', 20)}<h2 class="h" style="font-size:14px">Plus gros du mois</h2></div><div class="list" id="boardList" style="margin-top:6px"><p class="muted">…</p></div></section>
     <h2 class="kicker" style="margin:6px 0 0">Dernières prises</h2>
     <section id="feed" style="display:flex;flex-direction:column;gap:14px"><p class="muted">Chargement…</p></section>
@@ -324,7 +324,16 @@ async function viewHome() {
       : `<p class="kicker">Prochaine sortie</p><p class="muted" style="margin:6px 0 12px">Aucune sortie prévue.</p><a class="btn ghost sm" href="#/trip-new">Planifier une sortie</a>`;
   });
   // Conditions
-  fetchCurrent(HOME_POS.lat, HOME_POS.lon).then((c) => {
+  const fav = S.profile?.fav_place || 'p:cap-spartel';
+  const favLoc = fav.startsWith('s:')
+    ? sb.from('spots').select('id, name, lat, lon').eq('id', fav.slice(2)).maybeSingle().then(({ data }) => (data ? resolvePlace(fav, [data]) : null))
+    : Promise.resolve(resolvePlace(fav));
+  favLoc.then((L) => {
+    L = L || HOME_POS;
+    const n = $app.querySelector('#condName'); if (n) n.textContent = `Conditions · ${L.name}`;
+    const lk = $app.querySelector('#condLink'); if (lk) lk.href = fav.startsWith('s:') || fav.startsWith('p:') ? `#/forecast?${fav.startsWith('s:') ? 'spot=' + fav.slice(2) : 'place=' + fav.slice(2)}` : '#/forecast';
+    return fetchCurrent(L.lat, L.lon);
+  }).then((c) => {
     const el = $app.querySelector('#cond'); if (!el) return;
     const st = (ic, v, l) => `<div class="stat">${icon(ic, 20)}<b>${v ?? '—'}</b><span>${l}</span></div>`;
     el.innerHTML = st('wind', c.wind_speed_10m != null ? `${Math.round(c.wind_speed_10m)} nds` : null, `Vent ${windDir(c.wind_direction_10m)}`)
@@ -1166,16 +1175,27 @@ function recorder(t) {
 }
 
 /* ---------------- Prévisions & meilleures heures ---------------- */
+/* Lieux météo : spots de l'équipage + lieux de pêche du Maroc */
+function placeOptions(spots) {
+  const regions = [...new Set(PLACES.map((p) => p.region))];
+  return ((spots || []).length ? `<optgroup label="Mes spots">${spots.map((s) => `<option value="s:${s.id}">${esc(s.name)}</option>`).join('')}</optgroup>` : '')
+    + regions.map((r) => `<optgroup label="${esc(r)}">${PLACES.filter((p) => p.region === r).map((p) => `<option value="p:${p.id}">${esc(p.name)}</option>`).join('')}</optgroup>`).join('');
+}
+function resolvePlace(val, spots) {
+  const [k, v] = String(val || '').split(':');
+  if (k === 's') { const s = (spots || []).find((x) => x.id === v); if (s) return { lat: s.lat, lon: s.lon, name: s.name }; }
+  if (k === 'p') { const p = PLACES.find((x) => x.id === v); if (p) return { lat: p.lat, lon: p.lon, name: p.name }; }
+  return null;
+}
+
+
 async function viewForecast() {
   const q = qs();
   const { data: spots } = await sb.from('spots').select('id, name, lat, lon').eq('crew_id', S.crew.id).order('name');
-  let loc = HOME_POS;
-  if (q.spot) { const s = (spots || []).find((x) => x.id === q.spot); if (s) loc = { lat: s.lat, lon: s.lon, name: s.name }; }
-  else if (q.place) { const p = PLACES.find((x) => x.id === q.place); if (p) loc = { lat: p.lat, lon: p.lon, name: p.name }; }
-  const cur = q.spot ? 's:' + q.spot : 'p:' + (q.place || 'cap-spartel');
-  const regions = [...new Set(PLACES.map((p) => p.region))];
-  const opts = ((spots || []).length ? `<optgroup label="Mes spots">${spots.map((s) => `<option value="s:${s.id}">${esc(s.name)}</option>`).join('')}</optgroup>` : '')
-    + regions.map((r) => `<optgroup label="${esc(r)}">${PLACES.filter((p) => p.region === r).map((p) => `<option value="p:${p.id}">${esc(p.name)}</option>`).join('')}</optgroup>`).join('');
+  let cur = q.spot ? 's:' + q.spot : q.place ? 'p:' + q.place : (S.profile?.fav_place || 'p:cap-spartel');
+  let loc = resolvePlace(cur, spots);
+  if (!loc) { loc = HOME_POS; cur = 'p:cap-spartel'; }
+  const opts = placeOptions(spots);
   page(`<main class="screen">${topbar({ title: 'Prévisions', back: true })}
     <div class="row"><label class="f" style="flex:1">Lieu<select id="loc">${opts}</select></label><button class="iconbtn" id="me" aria-label="Ma position" style="align-self:flex-end;background:#fff;border:1px solid var(--line)">${icon('locate')}</button></div>
     <div id="fc"><p class="muted">Calcul des prévisions…</p></div>
@@ -1278,9 +1298,10 @@ async function viewStats() {
 
 /* ---------------- Équipe ---------------- */
 async function viewCrew() {
-  const [{ data: cs }, { count: spotCount }] = await Promise.all([
+  const [{ data: cs }, { count: spotCount }, { data: mySpots }] = await Promise.all([
     sb.from('catches').select('angler_id, created_by, species, weight_kg').eq('crew_id', S.crew.id),
     sb.from('spots').select('id', { count: 'exact', head: true }).eq('crew_id', S.crew.id).eq('visibility', 'crew'),
+    sb.from('spots').select('id, name, lat, lon').eq('crew_id', S.crew.id).order('name'),
   ]);
   const by = {};
   S.memberIds.forEach((m) => (by[m] = { n: 0, best: null }));
@@ -1297,7 +1318,7 @@ async function viewCrew() {
     <a class="btn ghost" href="#/trips">${icon('boat', 18)}Toutes les sorties</a>
     <a class="btn ghost" href="#/gpx">${icon('sd', 18)}Import / export (Humminbird, Garmin, Lowrance, Raymarine)</a>
     <a class="btn ghost" href="#/stats">${icon('chart', 18)}Stats de l’équipe</a>
-    <section class="card"><p class="kicker" style="margin:0 0 8px">Mon profil</p><form id="pf"><label class="f">Prénom<input name="name" required maxlength="40" value="${esc(S.profile?.display_name || '')}"></label><label class="f">Ma pêche (ex. Slow jig &amp; traîne)<input name="bio" maxlength="60" value="${esc(S.profile?.bio || '')}"></label><label class="f">Port d’attache<input name="port" maxlength="60" value="${esc(S.profile?.home_port || '')}" placeholder="Tanger"></label><button class="btn">Enregistrer</button></form><a class="btn ghost sm" style="margin-top:10px;width:100%" href="#/u/${S.user.id}">Voir mon profil public</a></section>
+    <section class="card"><p class="kicker" style="margin:0 0 8px">Mon profil</p><form id="pf"><label class="f">Prénom<input name="name" required maxlength="40" value="${esc(S.profile?.display_name || '')}"></label><label class="f">Ma pêche (ex. Slow jig &amp; traîne)<input name="bio" maxlength="60" value="${esc(S.profile?.bio || '')}"></label><label class="f">Port d’attache<input name="port" maxlength="60" value="${esc(S.profile?.home_port || '')}" placeholder="Tanger"></label><label class="f">Spot favori (météo de l’accueil)<select name="fav">${placeOptions(mySpots)}</select></label><button class="btn">Enregistrer</button></form><a class="btn ghost sm" style="margin-top:10px;width:100%" href="#/u/${S.user.id}">Voir mon profil public</a></section>
     <a class="btn ghost" href="#/captain">${icon('boat', 18)}Espace capitaine</a>
     ${S.profile?.is_admin ? `<a class="btn ghost" href="#/access">${icon('users', 18)}Demandes d’accès à Spartel</a>` : ''}
     <button class="btn dashed" id="newcrew">Rejoindre ou créer un autre équipage</button>
@@ -1306,9 +1327,10 @@ async function viewCrew() {
   $app.querySelector('#lo').onclick = async () => { if (await confirmBox('Se déconnecter ?', 'Déconnexion')) sb.auth.signOut(); };
   $app.querySelector('#newcrew').onclick = () => viewOnboarding();
   $app.querySelectorAll('[data-crew]').forEach((b) => (b.onclick = async () => { localStorage.setItem('crewId', b.dataset.crew); await loadCrew(); viewCrew(); }));
+  { const f = $app.querySelector('#pf').fav; f.value = S.profile?.fav_place || 'p:cap-spartel'; if (!f.value) f.value = 'p:cap-spartel'; }
   $app.querySelector('#pf').onsubmit = async (e) => {
     e.preventDefault();
-    const { error } = await sb.from('profiles').update({ display_name: e.target.name.value.trim(), bio: e.target.bio.value.trim(), home_port: e.target.port.value.trim() || null }).eq('id', S.user.id);
+    const { error } = await sb.from('profiles').update({ display_name: e.target.name.value.trim(), bio: e.target.bio.value.trim(), home_port: e.target.port.value.trim() || null, fav_place: e.target.fav.value || null }).eq('id', S.user.id);
     if (error) return fail(error);
     await loadProfile(); await loadMembers(); toast('Profil enregistré'); viewCrew();
   };
