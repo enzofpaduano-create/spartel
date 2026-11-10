@@ -112,7 +112,7 @@ const extOf = (file, def) => (file?.name?.split('.').pop() || def).toLowerCase()
 /* ---------------- Mise en page ---------------- */
 function tabbar(active) {
   const t = (h, ic, label, key) => `<a href="${h}" class="${active === key ? 'on' : ''}" ${active === key ? 'aria-current="page"' : ''}>${icon(ic)}<span>${label}</span></a>`;
-  return `<nav class="tabbar" aria-label="Navigation principale">${t('#/', 'home', 'Accueil', 'home')}${t('#/map', 'map', 'Carte', 'map')}<a href="#/catch-new" class="fab" aria-label="Nouvelle prise">${icon('plus', 28, 2.6)}</a>${t('#/outings', 'boat', 'Sorties', 'outings')}${t('#/friends', 'crew', 'Amis', 'friends')}</nav>`;
+  return `<nav class="tabbar" aria-label="Navigation principale">${t('#/', 'home', 'Accueil', 'home')}${t('#/map', 'map', 'Carte', 'map')}<a href="#/catch-new" class="fab" id="fab" aria-label="Ajouter" aria-haspopup="dialog">${icon('plus', 28, 2.6)}</a>${t('#/outings', 'boat', 'Sorties', 'outings')}${t('#/friends', 'crew', 'Amis', 'friends')}</nav>`;
 }
 function topbar({ title = '', back = false, right = '' } = {}) {
   const left = back
@@ -122,9 +122,67 @@ function topbar({ title = '', back = false, right = '' } = {}) {
 }
 function page(html, { tab = null } = {}) {
   teardown();
+  progress(false);
   $app.innerHTML = `${html}${tab !== false ? tabbar(tab) : ''}`;
   $app.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => (history.length > 1 ? history.back() : go('#/'))));
-  window.scrollTo(0, 0);
+  const sc = $app.querySelector('.screen');
+  const same = NAV.rendered === NAV.key.split('?')[0]; // même écran redessiné (après une action) : pas d'animation, on garde la position
+  if (sc && !same) sc.classList.add(NAV.back ? 'enter-back' : 'enter');
+  const fab = $app.querySelector('#fab'); if (fab) fab.addEventListener('click', (e) => { e.preventDefault(); addSheet(); });
+  if (same) { /* position conservée */ }
+  else if (NAV.back && NAV.pos[NAV.key]) restoreScroll(NAV.pos[NAV.key]);
+  else window.scrollTo(0, 0);
+  NAV.rendered = NAV.key.split('?')[0];
+}
+/* Navigation : sens (avant / retour), position de défilement par écran, barre de progression */
+const NAV = { stack: [], pos: {}, key: '', back: false, rendered: null };
+function navTrack() {
+  const k = location.hash || '#/';
+  if (NAV.key && NAV.key !== k) NAV.pos[NAV.key] = window.scrollY;
+  const st = NAV.stack;
+  if (st.length > 1 && st[st.length - 2] === k) { st.pop(); NAV.back = true; }
+  else { if (st[st.length - 1] !== k) st.push(k); NAV.back = false; if (st.length > 40) st.shift(); }
+  NAV.key = k;
+}
+function restoreScroll(y) {
+  const t0 = Date.now(), key = NAV.key;
+  const tick = () => {
+    if (NAV.key !== key) return;
+    const max = document.documentElement.scrollHeight - innerHeight;
+    if (max >= y - 4 || Date.now() - t0 > 2500) { window.scrollTo(0, Math.min(y, Math.max(max, 0))); return; }
+    requestAnimationFrame(tick);
+  };
+  tick();
+}
+function progress(on) {
+  let b = document.getElementById('prog');
+  if (!b) { b = document.createElement('div'); b.id = 'prog'; document.body.appendChild(b); }
+  clearTimeout(b._t);
+  if (on) { b.className = ''; b._t = setTimeout(() => (b.className = 'run'), 120); }
+  else if (b.className === 'run') { b.className = 'done'; b._t = setTimeout(() => (b.className = ''), 350); }
+  else b.className = '';
+}
+// Surligne tout de suite l'onglet touché, sans attendre le chargement de l'écran
+function tabHint() {
+  const h = (location.hash || '#/').split('?')[0];
+  const links = [...document.querySelectorAll('.tabbar a:not(.fab)')];
+  const hit = links.find((a) => a.getAttribute('href') === h);
+  if (hit) links.forEach((a) => a.classList.toggle('on', a === hit));
+}
+const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch (e) {} };
+/* Menu du bouton + */
+function addSheet() {
+  buzz();
+  const it = (h, ic, t, d, cls = '') => `<a class="addit ${cls}" href="${h}"><span class="addic">${icon(ic, 24)}</span><span class="grow"><b>${t}</b><small>${d}</small></span>${icon('chev', 18)}</a>`;
+  const m = modal(`<p class="h" style="font-size:18px;margin:0 0 12px">Ajouter</p>
+    <div class="addlist">
+      ${it('#/catch-new', 'cam', 'Une prise', 'Photo, poids, leurre : la météo est ajoutée toute seule', 'main')}
+      ${it('#/spot-new', 'pin', 'Un spot', 'Ta position GPS ou des coordonnées')}
+      ${it('#/outing-new', 'boat', 'Proposer une sortie', 'Tes amis sont prévenus s’il reste des places')}
+      ${it('#/trip-new', 'clock', 'Sortie dans mon carnet', 'Date, bateau, équipage, track GPS')}
+      ${it('#/lure-new', 'lure', 'Un leurre', 'Range ta boîte et vois lesquels prennent')}
+    </div>`);
+  m.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => m.remove()));
 }
 function teardown() {
   S.cleanup.forEach((f) => { try { f(); } catch (e) {} });
@@ -133,7 +191,7 @@ function teardown() {
 function modal(html) {
   const m = document.createElement('div');
   m.className = 'modal';
-  m.innerHTML = `<div class="card" role="dialog" aria-modal="true">${html}</div>`;
+  m.innerHTML = `<div class="card" role="dialog" aria-modal="true"><span class="grab" aria-hidden="true"></span>${html}</div>`;
   m.addEventListener('click', (e) => { if (e.target === m) m.remove(); });
   document.body.appendChild(m);
   S.cleanup.push(() => m.remove());
@@ -287,36 +345,71 @@ async function viewWelcome() {
 }
 
 /* ---------------- Accueil ---------------- */
+/* Petits outils d'affichage */
+const sk = (h, w = '100%', r = 12) => `<span class="sk" style="height:${h}px;width:${w};border-radius:${r}px"></span>`;
+// Compteur animé : <b data-count="12">0</b>
+function countUp(root = $app) {
+  root.querySelectorAll('[data-count]').forEach((el) => {
+    const to = +el.dataset.count || 0, suf = el.dataset.suf || '', t0 = performance.now(), dur = 700;
+    if (!to || matchMedia('(prefers-reduced-motion: reduce)').matches) { el.textContent = to + suf; return; }
+    const step = (t) => { const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3); el.textContent = Math.round(to * e) + suf; if (k < 1 && el.isConnected) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  });
+}
+const scoreCol = (sc) => (sc >= 70 ? '#3FBF7A' : sc >= 50 ? '#E2703A' : '#9FB0C2');
+function ring(score, size = 76) {
+  const r = 32, c = 2 * Math.PI * r, off = c * (1 - score / 100);
+  return `<svg class="ring" width="${size}" height="${size}" viewBox="0 0 76 76" role="img" aria-label="Indice de pêche ${score} sur 100"><circle cx="38" cy="38" r="${r}" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="7"/><circle class="ring-v" cx="38" cy="38" r="${r}" fill="none" stroke="${scoreCol(score)}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" style="--off:${off.toFixed(1)};--c:${c.toFixed(1)}" transform="rotate(-90 38 38)"/><text x="38" y="41" text-anchor="middle" fill="#fff" font-family="Inter,sans-serif" font-weight="800" font-size="21">${score}</text><text x="38" y="53" text-anchor="middle" fill="rgba(255,255,255,.65)" font-family="Inter,sans-serif" font-weight="600" font-size="8">/100</text></svg>`;
+}
+function verdict(d) {
+  if (d.windMax != null && d.windMax >= 22) return ['Vent fort aujourd’hui', 'Sortie déconseillée, regarde les jours suivants'];
+  if (d.waveMax != null && d.waveMax >= 2.2) return ['Mer formée aujourd’hui', 'Grosse houle, prudence'];
+  if (d.score >= 70) return ['Très bonne journée de pêche', 'Les conditions sont réunies'];
+  if (d.score >= 50) return ['Journée correcte', 'Ça peut mordre aux bons créneaux'];
+  return ['Journée difficile', 'Peu d’activité attendue'];
+}
+const WAVES = `<svg class="hero-waves" viewBox="0 0 1200 60" preserveAspectRatio="none" aria-hidden="true"><path class="w1" d="M0 30 Q75 8 150 30 T300 30 T450 30 T600 30 T750 30 T900 30 T1050 30 T1200 30 V60 H0Z"/><path class="w2" d="M0 38 Q75 20 150 38 T300 38 T450 38 T600 38 T750 38 T900 38 T1050 38 T1200 38 V60 H0Z"/></svg>`;
+
 async function viewHome() {
   const pending = await queueAll().catch(() => []);
   const showInstall = !isStandalone() && !installHidden();
-  page(`<main class="screen">
-    ${topbar({ right: `${F.bell()}<a href="#/me" aria-label="Mon profil"><span class="avatar sun lg">${esc(initials(S.profile?.display_name))}</span></a>` })}
+  const hr = new Date().getHours();
+  const hello = hr < 5 ? 'Bonne nuit' : hr < 12 ? 'Bonjour' : hr < 18 ? 'Salut' : 'Bonsoir';
+  const quick = [['#/forecast', 'sun', 'Prévisions'], ['#/lures', 'lure', 'Leurres'], ['#/trips', 'clock', 'Carnet'], ['#/stats', 'chart', 'Stats'], ['#/bookings', 'boat', 'Réservations'], ['#/gpx', 'sd', 'Import / Export'], [`#/u/${S.user.id}`, 'users', 'Profil public']];
+  page(`<main class="screen home">
+    ${topbar({ right: `${F.bell()}<a href="#/me" aria-label="Mon profil" class="press"><span class="avatar sun lg">${esc(initials(S.profile?.display_name))}</span></a>` })}
+    <div class="hello"><h1 class="h">${hello} ${esc(S.profile?.display_name || '')}</h1><p class="muted" style="margin:2px 0 0;text-transform:capitalize">${esc(fmtDate(new Date(), { weekday: 'long', day: 'numeric', month: 'long' }))}</p></div>
     ${pending.length ? `<div class="banner"><span>${pending.length} prise${pending.length > 1 ? 's' : ''} en attente de réseau</span><button class="btn sm" id="sync" style="background:var(--navy)">Envoyer</button></div>` : ''}
-    ${showInstall ? installCard({ dismissible: true }) : ''}
-    <nav class="shortcuts" aria-label="Raccourcis">${[['#/forecast', 'sun', 'Prévisions'], ['#/lures', 'lure', 'Leurres'], ['#/trips', 'clock', 'Carnet de sorties'], ['#/stats', 'chart', 'Stats'], ['#/gpx', 'sd', 'Import / Export'], [`#/u/${S.user.id}`, 'users', 'Mon profil public']].map(([h, i, l]) => `<a href="${h}">${icon(i, 22)}<span>${l}</span></a>`).join('')}</nav>
+    <a class="hero press" id="condLink" href="#/forecast" aria-label="Voir les prévisions">
+      <div class="hero-head"><div class="grow" style="min-width:0"><p class="kicker" id="condName">Conditions · …</p><h2 class="hero-v" id="verdict">${sk(22, '70%', 6)}</h2><p class="hero-s" id="verdictSub">${sk(13, '55%', 6)}</p></div><div id="ringBox">${sk(76, '76px', 38)}</div></div>
+      <div class="hero-stats" id="cond">${[0, 1, 2, 3].map(() => `<div class="stat">${sk(46, '100%', 10)}</div>`).join('')}</div>
+      <div class="week" id="week"></div>
+      <span class="hero-more">Prévisions sur 7 jours ${icon('chev', 14, 2.6)}</span>
+      ${WAVES}
+    </a>
+    <nav class="quick" aria-label="Raccourcis">${quick.map(([h, i, l]) => `<a href="${h}" class="press"><span class="qic">${icon(i, 22)}</span><span>${l}</span></a>`).join('')}</nav>
+    <section class="card" id="next">${sk(14, '40%', 6)}<div style="height:10px"></div>${sk(38, '100%')}</section>
     <section id="homeOut" style="display:flex;flex-direction:column;gap:10px"></section>
-    <section class="card" id="next"><p class="kicker">Prochaine sortie</p><p class="muted">Chargement…</p></section>
-    <section class="card"><div class="row between"><p class="kicker" id="condName">Conditions · …</p><a class="small muted" id="condLink" href="#/forecast" style="text-decoration:none">maintenant · prévisions</a></div><div class="stats" id="cond" style="margin-top:10px"><p class="muted">…</p></div></section>
-    <section id="board" class="card"><div class="row">${icon('trophy', 20)}<h2 class="h" style="font-size:14px">Plus gros du mois</h2></div><div class="list" id="boardList" style="margin-top:6px"><p class="muted">…</p></div></section>
-    <h2 class="kicker" style="margin:6px 0 0">Dernières prises</h2>
-    <section id="feed" style="display:flex;flex-direction:column;gap:14px"><p class="muted">Chargement…</p></section>
+    <section id="board" class="card"><div class="row between"><div class="row">${icon('trophy', 20)}<h2 class="h" style="font-size:14px">Plus gros du mois</h2></div><a class="small" href="#/friends" style="font-weight:600">Classement</a></div><div id="boardList" style="margin-top:10px">${sk(96, '100%')}</div></section>
+    ${showInstall ? installCard({ dismissible: true }) : ''}
+    <div class="row between" style="margin:6px 0 0"><h2 class="kicker" style="margin:0">Dernières prises</h2><a class="small" href="#/stats" style="font-weight:600">Stats</a></div>
+    <section id="feed" style="display:flex;flex-direction:column;gap:14px">${[0, 1].map(() => `<div class="card" style="padding:14px"><div class="row">${sk(32, '32px', 16)}<div class="grow">${sk(12, '45%', 6)}<div style="height:6px"></div>${sk(10, '65%', 6)}</div></div><div style="height:12px"></div>${sk(220, '100%', 14)}</div>`).join('')}</section>
   </main>`, { tab: 'home' });
   installInit($app);
   const sy = $app.querySelector('#sync'); if (sy) sy.onclick = () => syncQueue(true);
   M.homeOutings($app.querySelector('#homeOut')).catch(() => {});
   if (S.profile?.is_admin) sb.from('access_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending').then(({ count }) => {
-    if (count) $app.querySelector('#homeOut')?.insertAdjacentHTML('beforebegin', `<a class="banner" href="#/access" style="text-decoration:none"><span>${count} demande${count > 1 ? 's' : ''} d’accès à Spartel</span>${icon('chev', 18)}</a>`);
+    if (count) $app.querySelector('#condLink')?.insertAdjacentHTML('beforebegin', `<a class="banner pop" href="#/access" style="text-decoration:none"><span>${count} demande${count > 1 ? 's' : ''} d’accès à Spartel</span>${icon('chev', 18)}</a>`);
   });
 
   // Prochaine sortie
   sb.from('trips').select('*').or(`created_by.eq.${S.user.id},members.cs.{${S.user.id}}`).gte('trip_date', todayISO()).order('trip_date').limit(1).then(({ data }) => {
     const t = data?.[0], el = $app.querySelector('#next'); if (!el) return;
-    el.innerHTML = t
-      ? `<a href="#/trip/${t.id}" style="text-decoration:none;color:inherit;display:block"><div class="row between"><p class="kicker">Prochaine sortie</p><span class="small muted">${t.members?.length || 0} à bord</span></div>
-         <p class="h" style="font-size:20px;margin-top:6px">${esc(fmtDate(t.trip_date, { weekday: 'short', day: 'numeric', month: 'short' }))}</p>
-         <p class="muted" style="margin:4px 0 0">${esc([t.title, t.boat_name].filter(Boolean).join(' · ') || 'Sortie')}</p></a>`
-      : `<p class="kicker">Prochaine sortie</p><p class="muted" style="margin:6px 0 12px">Aucune sortie prévue.</p><a class="btn ghost sm" href="#/trip-new">Planifier une sortie</a>`;
+    if (!t) { el.outerHTML = `<a class="card row press pop" id="next" href="#/trip-new" style="text-decoration:none;color:inherit"><span class="datebox ghost">${icon('plus', 22)}</span><div class="grow"><b>Planifier une sortie</b><div class="small muted">Aucune sortie prévue dans ton carnet.</div></div>${icon('chev', 18)}</a>`; return; }
+    const d = new Date(t.trip_date + 'T12:00:00'), days = Math.round((d - new Date(todayISO() + 'T12:00:00')) / 86400e3);
+    el.outerHTML = `<a class="card row press pop" id="next" href="#/trip/${t.id}" style="text-decoration:none;color:inherit"><span class="datebox"><b>${d.getDate()}</b><small>${esc(fmtDate(d, { month: 'short' }))}</small></span>
+      <div class="grow" style="min-width:0"><p class="kicker" style="margin:0">Prochaine sortie</p><b class="ellipsis" style="display:block">${esc([t.title, t.boat_name].filter(Boolean).join(' · ') || 'Sortie')}</b><div class="small muted">${t.members?.length || 0} à bord</div></div>
+      <span class="count">${days <= 0 ? 'Aujourd’hui' : days === 1 ? 'Demain' : `J-${days}`}</span></a>`;
   });
   // Conditions
   const fav = S.profile?.fav_place || 'p:cap-spartel';
@@ -327,15 +420,28 @@ async function viewHome() {
     L = L || HOME_POS;
     const n = $app.querySelector('#condName'); if (n) n.textContent = `Conditions · ${L.name}`;
     const lk = $app.querySelector('#condLink'); if (lk) lk.href = fav.startsWith('s:') || fav.startsWith('p:') ? `#/forecast?${fav.startsWith('s:') ? 'spot=' + fav.slice(2) : 'place=' + fav.slice(2)}` : '#/forecast';
+    // Indice du jour, meilleur créneau et tendance de la semaine
+    import('./forecast.js').then(({ forecast }) => forecast(L.lat, L.lon)).then((days) => {
+      const v = $app.querySelector('#verdict'); if (!v || !days?.length) return;
+      const d = days[0], [title, sub] = verdict(d);
+      const now = Date.now(), win = [...d.sol.major, ...d.sol.minor].filter((p) => p.end > now).sort((a, b) => a.start - b.start)[0];
+      v.textContent = title;
+      $app.querySelector('#verdictSub').textContent = win ? `Prochain créneau ${fmtTime(win.start)}–${fmtTime(win.end)}` : sub;
+      $app.querySelector('#ringBox').innerHTML = ring(d.score);
+      $app.querySelector('#week').innerHTML = days.map((x, i) => `<div class="wd${i === 0 ? ' on' : ''}"><i style="--h:${Math.round(8 + Math.max(0, Math.min(1, (x.score - 25) / 65)) * 34)}px;--c:${scoreCol(x.score)};--d:${i * 50}ms"></i><small>${i === 0 ? 'Auj.' : esc(fmtDate(x.date, { weekday: 'short' }).slice(0, 3))}</small></div>`).join('');
+    }).catch(() => {
+      const v = $app.querySelector('#verdict'); if (!v) return;
+      v.textContent = 'Conditions du moment'; $app.querySelector('#verdictSub').textContent = 'Touche pour voir les prévisions'; $app.querySelector('#ringBox').innerHTML = '';
+    });
     return fetchCurrent(L.lat, L.lon);
   }).then((c) => {
     const el = $app.querySelector('#cond'); if (!el) return;
-    const st = (ic, v, l) => `<div class="stat">${icon(ic, 20)}<b>${v ?? '—'}</b><span>${l}</span></div>`;
+    const st = (ic, v, l) => `<div class="stat pop">${icon(ic, 18)}<b>${v ?? '—'}</b><span>${l}</span></div>`;
     el.innerHTML = st('wind', c.wind_speed_10m != null ? `${Math.round(c.wind_speed_10m)} nds` : null, `Vent ${windDir(c.wind_direction_10m)}`)
       + st('wave', c.wave_height != null ? `${num(c.wave_height)} m` : null, 'Houle')
       + st('temp', c.sea_surface_temperature != null ? `${Math.round(c.sea_surface_temperature)} °C` : null, 'Eau')
       + st('moon', `${c.moon.illumination} %`, c.moon.label);
-  });
+  }).catch(() => { const el = $app.querySelector('#cond'); if (el) el.innerHTML = '<p class="small" style="margin:0;opacity:.7">Météo indisponible pour le moment.</p>'; });
   // Classement + fil
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
   const [{ data: month }, { data: feed }, { data: spots }, { data: lures }] = await Promise.all([
@@ -348,7 +454,12 @@ async function viewHome() {
   (month || []).forEach((c) => { const a = c.angler_id || c.created_by; if (!best[a] || +c.weight_kg > +best[a].weight_kg) best[a] = c; });
   const ranking = Object.entries(best).sort((a, b) => b[1].weight_kg - a[1].weight_kg).slice(0, 5);
   const bl = $app.querySelector('#boardList');
-  if (bl) bl.innerHTML = ranking.length ? ranking.map(([id, c], i) => `<div class="list-item"><b style="width:16px;color:var(--sun-dark)">${i + 1}</b>${avatar(id)}<span class="grow ellipsis" style="font-weight:600">${esc(nameOf(id))}</span><span class="small muted">${esc(c.species)}</span><b>${kg(c.weight_kg)}</b></div>`).join('') : '<p class="muted" style="margin:8px 0 0">Pas encore de prise pesée ce mois-ci.</p>';
+  if (bl) {
+    const pod = (r, place) => (r ? `<a class="pod p${place}" href="#/u/${r[0]}"><span class="avatar lg ${place === 1 ? 'sun' : ''}">${esc(initials(nameOf(r[0])))}</span><b class="ellipsis">${esc(nameOf(r[0]))}</b><small class="ellipsis">${esc(r[1].species)}</small><span class="podbar"><b>${kg(r[1].weight_kg)}</b><i>${place}</i></span></a>` : `<div class="pod p${place} off"><span class="avatar lg" style="opacity:.25">?</span><b>&nbsp;</b><small>&nbsp;</small><span class="podbar"><i>${place}</i></span></div>`);
+    bl.innerHTML = ranking.length
+      ? `<div class="podium">${pod(ranking[1], 2)}${pod(ranking[0], 1)}${pod(ranking[2], 3)}</div>${ranking.length > 3 ? `<div class="list" style="margin-top:6px">${ranking.slice(3).map(([id, c], i) => `<div class="list-item"><b style="width:16px;color:var(--sun-dark)">${i + 4}</b>${avatar(id)}<span class="grow ellipsis" style="font-weight:600">${esc(nameOf(id))}</span><span class="small muted">${esc(c.species)}</span><b>${kg(c.weight_kg)}</b></div>`).join('')}</div>` : ''}`
+      : '<p class="muted" style="margin:0">Pas encore de prise pesée ce mois-ci. La première prend la tête du podium.</p>';
+  }
   const spotName = Object.fromEntries((spots || []).map((s) => [s.id, s.name]));
   const lureById = Object.fromEntries((lures || []).map((l) => [l.id, l]));
   const [url, social] = await Promise.all([
@@ -356,20 +467,37 @@ async function viewHome() {
     loadSocial((feed || []).map((c) => c.id)).catch(() => ({ likes: {}, comments: {} })),
   ]);
   const fe = $app.querySelector('#feed'); if (!fe) return;
-  fe.innerHTML = (feed || []).length ? feed.map((c) => {
+  fe.innerHTML = (feed || []).length ? feed.map((c, i) => {
     const a = c.angler_id || c.created_by, lure = lureById[c.lure_id];
     const lp = c.lure_photo_path || lure?.photo_path;
-    return `<article class="card" style="padding:14px">
+    const ph = c.photo_path && url(c.photo_path);
+    return `<article class="card post pop" style="--d:${Math.min(i, 5) * 60}ms">
       <a href="#/catch/${c.id}" style="text-decoration:none;color:inherit;display:block">
-      <div class="row">${avatar(a)}<div class="grow"><div style="font-weight:700">${esc(nameOf(a))}</div><div class="small muted ellipsis">${esc([fmtDate(c.caught_at), spotName[c.spot_id], c.depth_m != null ? `${num(c.depth_m, 0)} m` : null].filter(Boolean).join(' · '))}</div></div></div>
-      ${c.photo_path && url(c.photo_path) ? `<div class="gal" style="margin-top:12px"><img class="photo" loading="lazy" src="${url(c.photo_path)}" alt="${esc(c.species)}">${c.photo_paths?.length ? `<span class="gal-count">${icon('cam', 12)} ${1 + c.photo_paths.length}</span>` : ''}</div>` : ''}
-      <div class="row between" style="margin-top:12px"><span class="h" style="font-size:18px">${esc(c.species)}</span><b style="color:var(--sun-dark);font-size:18px">${kg(c.weight_kg)}</b></div>
-      ${lure || c.lure_name ? `<div class="row" style="margin-top:10px;padding:8px;background:var(--sand);border-radius:12px">${lp && url(lp) ? `<img class="thumb" src="${url(lp)}" alt="">` : `<span class="thumb">${icon('lure')}</span>`}<div><div style="font-weight:600;font-size:14px">${esc(lure?.name || c.lure_name)}</div><div class="small muted">${esc([c.technique, c.released ? 'relâché' : null].filter(Boolean).join(' · '))}</div></div></div>` : ''}
+      <div class="row post-head">${avatar(a)}<div class="grow" style="min-width:0"><div style="font-weight:700">${esc(nameOf(a))}</div><div class="small muted ellipsis">${esc([ago(c.caught_at), spotName[c.spot_id], c.depth_m != null ? `${num(c.depth_m, 0)} m` : null].filter(Boolean).join(' · '))}</div></div>${c.released ? '<span class="tag-rel">Relâché</span>' : ''}</div>
+      ${ph ? `<div class="gal post-ph" data-dbl="${c.id}"><img class="photo" loading="lazy" src="${ph}" alt="${esc(c.species)}">${c.photo_paths?.length ? `<span class="gal-count">${icon('cam', 12)} ${1 + c.photo_paths.length}</span>` : ''}<div class="post-cap"><span class="h">${esc(c.species)}</span>${c.weight_kg ? `<b>${kg(c.weight_kg)}</b>` : ''}</div><span class="bigheart" aria-hidden="true">${icon('heart', 84)}</span></div>`
+        : `<div class="post-noph"><span class="h">${esc(c.species)}</span><b>${kg(c.weight_kg)}</b></div>`}
+      ${lure || c.lure_name ? `<div class="row post-lure">${lp && url(lp) ? `<img class="thumb" src="${url(lp)}" alt="">` : `<span class="thumb">${icon('lure')}</span>`}<div style="min-width:0"><div class="ellipsis" style="font-weight:600;font-size:14px">${esc(lure?.name || c.lure_name)}</div><div class="small muted">${esc([c.technique, c.length_cm ? `${num(c.length_cm, 0)} cm` : null].filter(Boolean).join(' · ') || 'Leurre')}</div></div></div>` : ''}
       </a>
       <div class="actions">${likeBtn(c.id, social.likes[c.id])}<a class="likebtn" href="#/catch/${c.id}?c=1" aria-label="Commentaires">${icon('chat', 22)}<span>${social.comments[c.id] || ''}</span></a></div>
     </article>`;
-  }).join('') : `<div class="empty card">${icon('trophy', 34)}<p>Aucune prise pour l’instant.<br>Touche le bouton <b>+</b> pour enregistrer la première.</p></div>`;
+  }).join('') : `<div class="empty card pop">${icon('trophy', 34)}<p>Aucune prise pour l’instant.<br>Enregistre la première : photo, poids, leurre.</p><a class="btn sun sm" href="#/catch-new">${icon('cam', 16)}Ajouter une prise</a></div>`;
   wireLikes(fe, social.likes);
+  // Double appui sur la photo = j'aime
+  fe.querySelectorAll('[data-dbl]').forEach((box) => {
+    let last = 0;
+    box.addEventListener('click', (e) => {
+      const now = Date.now();
+      if (now - last < 320) {
+        e.preventDefault(); e.stopPropagation(); last = 0; clearTimeout(box._nav);
+        const btn = fe.querySelector(`[data-like="${box.dataset.dbl}"]`);
+        if (btn && !btn.classList.contains('on')) btn.click();
+        box.classList.remove('liked'); void box.offsetWidth; box.classList.add('liked'); buzz(12);
+      } else {
+        e.preventDefault(); last = now;
+        box._nav = setTimeout(() => { if (box.isConnected) go(`#/catch/${box.dataset.dbl}`); }, 330);
+      }
+    });
+  });
 }
 
 /* ---------------- Likes et commentaires ---------------- */
@@ -399,7 +527,7 @@ function wireLikes(root, likes, onChange) {
       e.preventDefault(); e.stopPropagation();
       const id = btn.dataset.like, set = (likes[id] ||= new Set()), on = !set.has(S.user.id);
       const paint = () => { paintLike(btn, set); onChange?.(set); };
-      on ? set.add(S.user.id) : set.delete(S.user.id); paint(); // affichage immédiat
+      on ? set.add(S.user.id) : set.delete(S.user.id); paint(); if (on) { buzz(); btn.classList.remove('burst'); void btn.offsetWidth; btn.classList.add('burst'); } // affichage immédiat
       const { error } = on
         ? await sb.from('catch_likes').insert({ catch_id: id })
         : await sb.from('catch_likes').delete().eq('catch_id', id).eq('user_id', S.user.id);
@@ -494,7 +622,7 @@ async function viewMap() {
       <form class="search" id="sf"><span aria-hidden="true">${icon('search', 20)}</span><input name="q" placeholder="Spot ou coordonnées (35°48,2'N 5°58,9'W)" aria-label="Chercher un spot ou des coordonnées" autocomplete="off"><button class="iconbtn" type="button" id="gpx" aria-label="Importer un GPX du Solix">${icon('sd', 20)}</button></form>
       <div class="chips" id="filters"><button class="chip on" data-f="all">Tous</button><button class="chip" data-f="mine">Mes spots</button><button class="chip" data-f="private">Privés</button><button class="chip" data-f="friends">Amis</button>${BOTTOMS.slice(0, 4).map((b) => `<button class="chip" data-f="b:${b}">${b}</button>`).join('')}</div>
     </div>
-    <div class="map-fabs"><button class="iconbtn" id="heat" aria-label="Carte de chaleur des prises">${icon('fire')}</button><button class="iconbtn" id="base" aria-label="Revenir à ma base">${icon('home')}</button><button class="iconbtn" id="layers" aria-label="Fonds de carte et profondeurs">${icon('layers')}</button><button class="iconbtn" id="loc" aria-label="Ma position">${icon('locate')}</button><button class="iconbtn" id="addspot" aria-label="Ajouter un spot" style="background:var(--sun);color:#fff">${icon('plus', 24, 2.4)}</button></div>
+    <div class="map-fabs"><button class="iconbtn lab" id="heat" aria-label="Carte de chaleur des prises">${icon('fire', 20)}<small>Prises</small></button><button class="iconbtn lab" id="base" aria-label="Revenir à ma base">${icon('home', 20)}<small>Base</small></button><button class="iconbtn lab" id="layers" aria-label="Fonds de carte et profondeurs">${icon('layers', 20)}<small>Fonds</small></button><button class="iconbtn lab" id="loc" aria-label="Ma position">${icon('locate', 20)}<small>Moi</small></button><button class="iconbtn lab" id="addspot" aria-label="Ajouter un spot" style="background:var(--sun);color:#fff">${icon('plus', 20, 2.6)}<small>Spot</small></button></div>
     <div id="sheetHost"></div>`, { tab: 'map' });
 
   const { data: spots } = await sb.from('spots').select('*').order('name');
@@ -791,10 +919,12 @@ async function viewCatchForm() {
 
   page(`<main class="screen">${topbar({ title: 'Nouvelle prise', back: true })}
     <form id="f">
+      <p class="step"><i>1</i><span><b>La photo</b><small>Facultative, mais c’est elle qui fait la prise</small></span></p>
       <div class="row" style="align-items:stretch"><label class="drop" style="flex:2" id="pd">${icon('cam', 26)}<span>Photos du poisson</span><input type="file" name="photo" accept="image/*" multiple aria-label="Photos du poisson"></label>
         <label class="drop" style="flex:1" id="vd">${icon('video', 22)}<span>Vidéo</span><input type="file" name="video" accept="video/*" aria-label="Vidéo"></label></div>
       <div class="pstrip" id="pstrip" hidden></div>
       <p class="hint" style="margin:-6px 0 0">Plusieurs photos possibles (8 max). Touche une miniature pour en faire la photo principale. Les coordonnées GPS cachées dans les photos sont retirées avant l’envoi.</p>
+      <p class="step"><i>2</i><span><b>Le poisson</b></span></p>
       <div><p class="small muted" style="font-weight:600;margin:0 0 8px">Qui l’a sorti ?</p><div class="chips wrap" id="ang">${crewOrder.map((id) => `<button type="button" class="chip ${id === st.angler ? 'on' : ''}" data-a="${id}">${esc(nameOf(id))}</button>`).join('')}</div></div>
       <label class="f">Espèce<input name="species" list="sp" required placeholder="Denti, loup, pagre…" autocomplete="off"><datalist id="sp">${SPECIES.map((s) => `<option value="${esc(s)}">`).join('')}</datalist></label>
       <div class="row"><label class="f">Poids (kg)<input name="weight" type="number" inputmode="decimal" step="0.01" min="0"></label><label class="f">Taille (cm)<input name="length" type="number" inputmode="decimal" step="0.5" min="0"></label><label class="f">Profondeur (m)<input name="depth" type="number" inputmode="decimal" step="1" min="0"></label></div>
@@ -803,17 +933,19 @@ async function viewCatchForm() {
         <div class="chips" id="lures">${myLures.map((l) => `<button type="button" class="chip" data-l="${l.id}" style="padding:4px 12px 4px 4px">${l.photo_path && url(l.photo_path) ? `<img src="${url(l.photo_path)}" alt="" style="width:30px;height:30px;border-radius:8px;object-fit:cover">` : `<span class="thumb" style="width:30px;height:30px;border-radius:8px">${icon('lure', 16)}</span>`}${esc(l.name)}${!isMine(l) ? ` <span class="small muted">· ${esc(nameOf(l.owner_id))}</span>` : ''}</button>`).join('')}<button type="button" class="chip" data-l="new">${icon('plus', 14)}Nouveau leurre</button></div>
         <div id="newLure" hidden style="margin-top:10px" class="card"><div class="row" style="align-items:stretch"><label class="drop" style="width:96px;min-height:96px;flex:none">${icon('cam', 20)}<span class="small">Photo</span><input type="file" name="lurePhoto" accept="image/*" aria-label="Photo du leurre"></label><div class="grow" style="display:flex;flex-direction:column;gap:8px"><label class="f">Nom du leurre<input name="lureName" placeholder="Jig 80 g sardine"></label><label class="switch" style="font-size:13px">Ajouter à ma boîte<input type="checkbox" name="lureSave" checked></label></div></div></div>
       </div>
+      <p class="step"><i>3</i><span><b>Où et quand</b><small>La météo du moment est ajoutée toute seule</small></span></p>
       <div class="posbox"><div class="row">${icon('pin', 18)}<b class="grow" id="posTxt">${st.pos ? `${esc(st.posSrc)} · ${fmtCoord(st.pos.lat, st.pos.lon, S.coordMode)}` : 'Position : à définir'}</b></div>
         <div class="chips"><button type="button" class="chip" id="pGps">${icon('locate', 14)}Mon GPS</button><button type="button" class="chip" id="pSpot">${icon('pin', 14)}Un spot</button><button type="button" class="chip" id="pPhoto" disabled>${icon('cam', 14)}GPS de la photo</button><button type="button" class="chip" id="pType">Saisir</button></div>
         <p class="small muted" style="margin:0">Vent, houle, température de l’eau et lune sont ajoutés automatiquement.</p></div>
       <div class="row"><label class="f">Date et heure<input name="when" type="datetime-local" value="${localDT()}" required></label></div>
       <label class="f">Sortie<select name="trip"><option value="">Aucune</option>${(trips || []).map((t) => `<option value="${t.id}" ${t.id === tripId ? 'selected' : ''}>${esc(fmtDate(t.trip_date))}${t.title ? ' · ' + esc(t.title) : ''}</option>`).join('')}</select></label>
+      <p class="step"><i>4</i><span><b>Partage</b><small>Par défaut : visible par tes amis</small></span></p>
       <label class="switch">Relâché<input type="checkbox" name="released"></label>
       <label class="switch">Visible seulement par moi<input type="checkbox" name="private"></label>
       <label class="switch">Afficher sur mon profil public<input type="checkbox" name="public"></label>
       <p class="hint" style="margin:-8px 0 0">Profil public : photo, espèce, poids et leurre. Jamais le spot ni les coordonnées.</p>
       <label class="f">Notes<textarea name="notes" placeholder="Dérive, touche, combat…"></textarea></label>
-      <button class="btn sun" type="submit">Enregistrer la prise</button>
+      <div class="sticky-cta"><button class="btn sun" type="submit">${icon('check', 18, 3)}Enregistrer la prise</button></div>
     </form></main>`, { tab: false });
 
   const f = $app.querySelector('#f');
@@ -1088,7 +1220,7 @@ async function viewTrips() {
   ]);
   const n = {}; (cs || []).forEach((c) => (n[c.trip_id] = (n[c.trip_id] || 0) + 1));
   page(`<main class="screen">${topbar({ title: 'Sorties', back: true, right: `<a class="btn sun sm" href="#/trip-new">${icon('plus', 16)}Sortie</a>` })}
-    <div class="card list" style="padding:0 16px">${(trips || []).map((t) => `<a class="list-item" href="#/trip/${t.id}"><span class="thumb" style="background:var(--navy);color:#fff">${icon('boat')}</span><div class="grow"><b>${esc(fmtDate(t.trip_date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }))}</b><div class="small muted ellipsis">${esc([t.title, t.boat_name, `${t.members?.length || 0} à bord`].filter(Boolean).join(' · '))}</div></div><b style="color:var(--sun-dark)">${n[t.id] || 0}</b>${icon('chev', 18)}</a>`).join('') || '<p class="muted">Aucune sortie. Crée-en une ou importe un track du Solix.</p>'}</div>
+    <div class="card list" style="padding:0 16px">${(trips || []).map((t) => `<a class="list-item" href="#/trip/${t.id}"><span class="thumb" style="background:var(--navy);color:#fff">${icon('boat')}</span><div class="grow"><b>${esc(fmtDate(t.trip_date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }))}</b><div class="small muted ellipsis">${esc([t.title, t.boat_name, `${t.members?.length || 0} à bord`].filter(Boolean).join(' · '))}</div></div><b style="color:var(--sun-dark)">${n[t.id] || 0}</b>${icon('chev', 18)}</a>`).join('') || `<div class="empty">${icon('boat', 34)}<p>Ton carnet est vide.<br>Note ta prochaine sortie : équipage, bateau, track GPS et prises du jour.</p><a class="btn sun sm" href="#/trip-new">${icon('plus', 16)}Nouvelle sortie</a></div>`}</div>
     <a class="btn dashed" href="#/gpx">${icon('sd', 18)}Importer un track du Solix</a>
   </main>`, { tab: 'home' });
 }
@@ -1348,8 +1480,8 @@ async function viewStats() {
   page(`<main class="screen">${topbar({ title: 'Stats', back: true })}
     <div class="chips"><a class="chip ${!sel ? 'on' : ''}" href="#/stats">Toutes</a>${species.map(([s, n]) => `<a class="chip ${sel === s ? 'on' : ''}" href="#/stats?sp=${encodeURIComponent(s)}">${esc(s)} · ${n}</a>`).join('')}</div>
     ${list.length ? `
-    <p class="kicker" style="margin:0">${sel ? `Profil · ${esc(sel)}` : 'Moi et mes amis'} · ${list.length} prise${list.length > 1 ? 's' : ''}</p>
-    <div class="grid2">
+    <section class="card dark bigstat"><div><p class="kicker" style="color:var(--sun);margin:0">${sel ? `Profil · ${esc(sel)}` : 'Moi et mes amis'}</p><p class="bignum"><b data-count="${list.length}">0</b> prise${list.length > 1 ? 's' : ''}</p></div>${best ? `<div style="text-align:right"><p class="small muted" style="margin:0">Record</p><b style="font-size:20px;color:var(--sun)">${kg(best.weight_kg)}</b><div class="small muted">${esc(nameOf(best.angler_id || best.created_by))}</div></div>` : ''}</section>
+    <div class="grid2 stagger">
       ${card('Plus grosse', best ? `${kg(best.weight_kg)} · ${esc(nameOf(best.angler_id || best.created_by))}` : null)}
       ${card('Meilleur leurre', esc(top(list.map((c) => lureName[c.lure_id] || c.lure_name))[0]?.[0]))}
       ${card('Meilleure technique', esc(top(list.map((c) => c.technique))[0]?.[0]))}
@@ -1361,11 +1493,12 @@ async function viewStats() {
       ${card('Profondeur', depth ? `${Math.round(depth[0])}–${Math.round(depth[1])} m` : null)}
       ${card('Relâchés', `${Math.round((list.filter((c) => c.released).length / list.length) * 100)} %`)}
     </div>
-    <section class="card"><p class="kicker" style="margin:0 0 10px">Par mois</p><div class="months">${months.map((n, i) => `<div><span style="height:${Math.round((n / mmax) * 70)}px" title="${n}"></span><small>${'JFMAMJJASOND'[i]}</small></div>`).join('')}</div></section>
+    <section class="card"><p class="kicker" style="margin:0 0 10px">Par mois</p><div class="months">${months.map((n, i) => `<div><span style="height:${Math.round((n / mmax) * 70)}px;--d:${i * 35}ms" title="${n}"></span><small>${'JFMAMJJASOND'[i]}</small></div>`).join('')}</div></section>
     ${!sel ? `<section class="card"><p class="kicker" style="margin:0 0 6px">Espèces</p><div class="list">${species.slice(0, 10).map(([s, n]) => `<a class="list-item" href="#/stats?sp=${encodeURIComponent(s)}"><span class="grow"><b>${esc(s)}</b></span><span class="muted">${n}</span>${icon('chev', 18)}</a>`).join('')}</div></section>` : ''}
     <p class="small muted" style="margin:0">Les plages « qui marchent » couvrent 60 % des prises enregistrées avec leurs conditions. Plus vous êtes de pêcheurs à noter vos prises, plus ces profils deviennent précis.</p>`
     : `<div class="empty card">${icon('chart', 34)}<p>Pas encore de prise. Les stats se remplissent toutes seules à chaque poisson noté.</p></div>`}
   </main>`, { tab: 'home' });
+  countUp();
 }
 
 /* ---------------- Mon profil ---------------- */
@@ -1375,24 +1508,31 @@ async function viewMe() {
     sb.from('catches').select('id').or(`angler_id.eq.${S.user.id},created_by.eq.${S.user.id}`),
     pushStatus(),
   ]);
-  const nF = Math.max(S.memberIds.length - 1, 0);
-  const pushCard = ps === 'unsupported' ? ''
-    : `<section class="card"><p class="kicker" style="margin:0 0 6px">Notifications</p>${
-      ps === 'need-install' ? '<p class="muted small" style="margin:0">Sur iPhone, installe d’abord Spartel sur l’écran d’accueil (Partager → Sur l’écran d’accueil), puis rouvre l’appli pour activer les notifications.</p>'
-      : ps === 'denied' ? '<p class="muted small" style="margin:0">Les notifications sont bloquées. Autorise-les pour Spartel dans les réglages de ton téléphone.</p>'
-      : ps === 'on' ? `<p class="okline" style="margin:0 0 10px">${icon('check', 16, 3)} Activées sur cet appareil</p><button class="btn ghost sm" id="pushoff">Désactiver</button>`
-      : '<p class="muted small" style="margin:0 0 10px">Reçois une alerte quand un ami te demande en ami ou publie une sortie avec des places.</p><button class="btn sun" id="pushon">Activer les notifications</button>'}</section>`;
+  const nF = Math.max(S.memberIds.length - 1, 0), nC = (mine || []).length, nS = (mySpots || []).length;
+  const pushRow = ps === 'unsupported' ? ''
+    : ps === 'need-install' ? `<div class="setrow"><span class="setic">${icon('bell', 20)}</span><div class="grow"><b>Notifications</b><small>Sur iPhone, installe d’abord Spartel sur l’écran d’accueil (Partager → Sur l’écran d’accueil), puis rouvre l’appli.</small></div></div>`
+    : ps === 'denied' ? `<div class="setrow"><span class="setic">${icon('bell', 20)}</span><div class="grow"><b>Notifications bloquées</b><small>Autorise-les pour Spartel dans les réglages de ton téléphone.</small></div></div>`
+    : `<label class="setrow"><span class="setic">${icon('bell', 20)}</span><div class="grow"><b>Notifications</b><small>${ps === 'on' ? 'Activées sur cet appareil' : 'Demandes d’amis et sorties avec des places'}</small></div><span class="switch" style="min-height:0"><input type="checkbox" id="pushsw" ${ps === 'on' ? 'checked' : ''} aria-label="Notifications"></span></label>`;
+  const mrow = (h, ic, t, d) => `<a class="setrow press" href="${h}"><span class="setic">${icon(ic, 20)}</span><div class="grow"><b>${t}</b>${d ? `<small>${d}</small>` : ''}</div>${icon('chev', 18)}</a>`;
   page(`<main class="screen">${topbar({ title: 'Mon profil', back: true, right: `<button class="iconbtn" id="lo" aria-label="Se déconnecter">${icon('logout')}</button>` })}
-    <section class="card dark row" style="gap:14px"><span class="avatar sun lg" style="width:64px;height:64px;font-size:28px">${esc(initials(S.profile?.display_name))}</span><div><h2 class="h" style="font-size:20px;margin:0">${esc(S.profile?.display_name || '')}</h2><p class="small muted" style="margin:4px 0 0">${(mine || []).length} prise${(mine || []).length > 1 ? 's' : ''} · ${nF} ami${nF > 1 ? 's' : ''}</p></div></section>
-    ${pushCard}
+    <section class="card dark pcard"><div class="row" style="gap:14px"><span class="avatar sun lg" style="width:64px;height:64px;font-size:28px">${esc(initials(S.profile?.display_name))}</span><div class="grow" style="min-width:0"><h2 class="h" style="font-size:20px;margin:0">${esc(S.profile?.display_name || '')}</h2><p class="small muted ellipsis" style="margin:4px 0 0">${esc([S.profile?.bio, S.profile?.home_port].filter(Boolean).join(' · ') || 'Pêcheur Spartel')}</p></div></div>
+      <div class="pstats"><a href="#/stats"><b data-count="${nC}">0</b><span>prise${nC > 1 ? 's' : ''}</span></a><a href="#/friends"><b data-count="${nF}">0</b><span>ami${nF > 1 ? 's' : ''}</span></a><a href="#/map"><b data-count="${nS}">0</b><span>spot${nS > 1 ? 's' : ''}</span></a></div>
+      ${WAVES}</section>
+    <section class="card setlist">
+      ${mrow('#/friends', 'users', 'Mes amis', 'Inviter, chercher, classement')}
+      ${mrow('#/lures', 'lure', 'Ma boîte à leurres', '')}
+      ${mrow('#/trips', 'clock', 'Carnet de sorties', '')}
+      ${mrow('#/stats', 'chart', 'Stats', 'Ce qui marche, quand et où')}
+      ${mrow('#/bookings', 'boat', 'Mes réservations', '')}
+      ${mrow('#/captain', 'nav', 'Espace capitaine', 'Proposer des sorties, gérer les demandes')}
+      ${mrow('#/gpx', 'sd', 'Import / export', 'Humminbird, Garmin, Lowrance, Raymarine')}
+      ${S.profile?.is_admin ? mrow('#/access', 'lock', 'Demandes d’accès à Spartel', '') : ''}
+    </section>
+    ${pushRow ? `<section class="card setlist">${pushRow}</section>` : ''}
     ${installCard()}
     <section class="card"><p class="kicker" style="margin:0 0 8px">Mes infos</p><form id="pf"><label class="f">Prénom<input name="name" required maxlength="40" value="${esc(S.profile?.display_name || '')}"></label><label class="f">Ma pêche (ex. Slow jig &amp; traîne)<input name="bio" maxlength="60" value="${esc(S.profile?.bio || '')}"></label><label class="f">Port d’attache<input name="port" maxlength="60" value="${esc(S.profile?.home_port || '')}" placeholder="Tanger"></label><label class="f">Ma base préférée (accueil, météo, carte)<select name="fav">${placeOptions(mySpots)}</select></label><button class="btn">Enregistrer</button></form><a class="btn ghost sm" style="margin-top:10px;width:100%" href="#/u/${S.user.id}">Voir mon profil public</a></section>
-    <a class="btn ghost" href="#/friends">${icon('users', 18)}Mes amis</a>
-    <a class="btn ghost" href="#/trips">${icon('boat', 18)}Carnet de sorties</a>
-    <a class="btn ghost" href="#/gpx">${icon('sd', 18)}Import / export (Humminbird, Garmin, Lowrance, Raymarine)</a>
-    <a class="btn ghost" href="#/captain">${icon('boat', 18)}Espace capitaine</a>
-    ${S.profile?.is_admin ? `<a class="btn ghost" href="#/access">${icon('users', 18)}Demandes d’accès à Spartel</a>` : ''}
   </main>`, { tab: null });
+  countUp();
   installInit($app);
   $app.querySelector('#lo').onclick = async () => { if (await confirmBox('Se déconnecter ?', 'Déconnexion')) sb.auth.signOut(); };
   { const f = $app.querySelector('#pf').fav; f.value = S.profile?.fav_place || 'p:cap-spartel'; if (!f.value) f.value = 'p:cap-spartel'; }
@@ -1402,8 +1542,12 @@ async function viewMe() {
     if (error) return fail(error);
     await loadProfile(); await loadFriends(); toast('Profil enregistré'); viewMe();
   };
-  const on = $app.querySelector('#pushon'); if (on) on.onclick = async () => { try { await enablePush(sb, S.user.id); toast('Notifications activées'); viewMe(); } catch (e) { fail(e); } };
-  const off = $app.querySelector('#pushoff'); if (off) off.onclick = async () => { await disablePush(sb); toast('Notifications désactivées'); viewMe(); };
+  const sw = $app.querySelector('#pushsw');
+  if (sw) sw.onchange = async () => {
+    sw.disabled = true;
+    try { if (sw.checked) { await enablePush(sb, S.user.id); toast('Notifications activées'); } else { await disablePush(sb); toast('Notifications désactivées'); } } catch (e) { fail(e); }
+    viewMe();
+  };
 }
 
 /* ---------------- Demandes d'accès (admin) ---------------- */
@@ -1474,10 +1618,13 @@ async function route() {
   if (location.hash.startsWith('#/signup')) history.replaceState(null, '', '#/');
   if (location.hash.startsWith('#/reset')) return viewReset();
   const h = location.hash.split('?')[0] || '#/';
+  navTrack(); tabHint(); progress(true);
+  const mine = (route.seq = (route.seq || 0) + 1);
   for (const [re, fn] of routes) {
     const m = h.match(re);
-    if (m) { try { await fn(m[1]); } catch (e) { fail(e); } return; }
+    if (m) { try { await fn(m[1]); } catch (e) { fail(e); } if (mine === route.seq) progress(false); return; }
   }
+  progress(false);
   notFound();
 }
 

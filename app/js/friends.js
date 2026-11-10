@@ -66,7 +66,7 @@ export function friendsModule(ctx) {
     const msg = `Rejoins-moi sur Spartel, l’appli des pêcheurs en mer.\nCrée ton compte avec mon lien, on sera amis tout de suite :\n${link}`;
 
     page(`<main class="screen">${topbar({ right: bell() })}
-      <h2 class="h" style="font-size:24px;margin:0">Mes amis</h2>
+      <div class="hello"><h1 class="h">Mes amis</h1><p class="muted" style="margin:2px 0 0">${friendIds.length ? `${friendIds.length} ami${friendIds.length > 1 ? 's' : ''} · vos spots et prises sont partagés` : 'Invite tes amis pour partager spots et prises'}</p></div>
       <section class="card"><p class="kicker" style="margin:0 0 6px">Inviter un ami</p>
         <p class="muted small" style="margin:0 0 10px">Envoie ton lien (WhatsApp, SMS…) : il peut installer l’appli, créer son compte, et vous êtes amis directement.</p>
         <div class="btn-row"><button class="btn sun" id="inv">${icon('share', 16)}Envoyer mon lien</button><button class="btn ghost" id="cp">${icon('copy', 16)}Copier</button></div>

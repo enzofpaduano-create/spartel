@@ -104,11 +104,10 @@ export function market(ctx) {
     const card = await cardEnabled();
     const chip = (k, l) => `<a class="chip ${f === k ? 'on' : ''}" href="#/outings?f=${k}">${l}</a>`;
     page(`<main class="screen">${topbar({ right: `<a class="btn sun sm" href="#/outing-new">${icon('plus', 16)}Proposer</a>` })}
-      <section class="card dark"><p class="kicker" style="color:var(--sun)">Sorties en mer</p><h1 class="h" style="font-size:22px;margin-top:4px">Réserve ta place à bord</h1>
-        <p class="small muted" style="margin:6px 0 0">Sorties entre amis ou avec un capitaine. ${card ? 'Au Maroc tu paies le capitaine directement, ailleurs par carte sur Spartel.' : 'Tu réserves ici et tu paies le capitaine directement : espèces, virement ou acompte.'}</p></section>
+      <div class="hello"><h1 class="h">Sorties en mer</h1><p class="muted" style="margin:2px 0 0">${shown.length ? `${shown.length} sortie${shown.length > 1 ? 's' : ''} ouverte${shown.length > 1 ? 's' : ''} · ` : ''}${card ? 'paiement au capitaine ou par carte' : 'réserve ici, paie le capitaine directement'}</p></div>
       <div class="btn-row"><a class="btn ghost sm" href="#/bookings">${icon('clock', 16)}Mes réservations</a><a class="btn ghost sm" href="#/captain" style="position:relative">${icon('boat', 16)}Espace capitaine${pending ? `<span class="dotn">${pending}</span>` : ''}</a></div>
       <nav class="chips" aria-label="Filtrer">${chip('all', 'Toutes')}${chip('MA', 'Maroc')}${chip('ES', 'Espagne')}${chip('other', 'Ailleurs')}${chip('friends', 'Mes amis')}${chip('mine', 'Les miennes')}</nav>
-      <section class="ogrid">${shown.length ? shown.map((o) => outingCard(o, seats[o.id])).join('') : `<div class="empty card" style="grid-column:1/-1">${icon('boat', 34)}<p>Aucune sortie ouverte pour l’instant.<br>Propose la première : sortie entre amis ou sortie pro.</p><a class="btn sun sm" href="#/outing-new">Proposer une sortie</a></div>`}</section>
+      <section class="ogrid stagger">${shown.length ? shown.map((o) => outingCard(o, seats[o.id])).join('') : `<div class="empty card" style="grid-column:1/-1">${icon('boat', 34)}<p>Aucune sortie ouverte pour l’instant.<br>Propose la première : sortie entre amis ou sortie pro.</p><a class="btn sun sm" href="#/outing-new">Proposer une sortie</a></div>`}</section>
     </main>`, { tab: 'outings' });
   }
 
